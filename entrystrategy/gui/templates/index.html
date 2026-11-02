@@ -1103,21 +1103,35 @@
     });
 
     let isSimpleMode = false;
+    let isToggling = false;
 
     async function toggleSimpleMode() {
-      isSimpleMode = !isSimpleMode;
-      if (isSimpleMode) {
-        document.body.classList.add('simple-mode');
-      } else {
-        document.body.classList.remove('simple-mode');
-      }
+      if (isToggling) return;
+      isToggling = true;
+      const targetState = !isSimpleMode;
 
-      if (window.pywebview && window.pywebview.api && window.pywebview.api.toggle_simple_mode) {
-        try {
-          await window.pywebview.api.toggle_simple_mode(isSimpleMode);
-        } catch (e) {
-          console.error("Error invoking toggle_simple_mode:", e);
+      try {
+        if (window.pywebview && window.pywebview.api && window.pywebview.api.toggle_simple_mode) {
+          const res = await window.pywebview.api.toggle_simple_mode(targetState);
+          const data = (typeof res === 'string') ? JSON.parse(res) : res;
+          if (data && data.success) {
+            isSimpleMode = Boolean(data.is_simple);
+            if (isSimpleMode) {
+              document.body.classList.add('simple-mode');
+            } else {
+              document.body.classList.remove('simple-mode');
+            }
+          } else {
+            console.error("Simple mode toggle rejected by backend:", data);
+          }
+        } else {
+          isSimpleMode = targetState;
+          document.body.classList.toggle('simple-mode', isSimpleMode);
         }
+      } catch (e) {
+        console.error("Error invoking toggle_simple_mode:", e);
+      } finally {
+        isToggling = false;
       }
     }
 
@@ -1163,7 +1177,7 @@
             if (sBuyEl) sBuyEl.innerText = buyText;
             if (sSellEl) sSellEl.innerText = sellText;
 
-            if (window.pywebview.api.update_taskbar_title) {
+            if (window.pywebview && window.pywebview.api && window.pywebview.api.update_taskbar_title) {
               window.pywebview.api.update_taskbar_title(`▲ BUY: ${buyText}`, `▼ SELL: ${sellText}`);
             }
 

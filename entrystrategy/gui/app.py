@@ -1,4 +1,4 @@
-"""Pywebview GUI Application for Entry Strategy Matrix."""
+"""Pywebview GUI Application for Entry Strategy Matrix with Robust Win32 & DPI Integration."""
 import json
 import logging
 import os
@@ -7,7 +7,7 @@ import ctypes
 import threading
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, Any, Tuple
 import webview
 
 from entrystrategy.service import EntryStrategyService
@@ -15,11 +15,112 @@ from entrystrategy.service import EntryStrategyService
 logger = logging.getLogger("EntryStrategy.GUI")
 
 if sys.platform == "win32":
+    import ctypes.wintypes
+
+    user32 = ctypes.windll.user32
+    shell32 = ctypes.windll.shell32
+
     try:
         myappid = "EntryStrategy.PatternMatrix.v1.0"
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
+        shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
     except Exception as e:
         logger.debug(f"Could not set AppUserModelID: {e}")
+
+    # Correct 64-bit and 32-bit Win32 Callback Definitions
+    WNDENUMPROC = ctypes.WINFUNCTYPE(
+        ctypes.wintypes.BOOL,
+        ctypes.wintypes.HWND,
+        ctypes.wintypes.LPARAM,
+    )
+    user32.EnumWindows.argtypes = [WNDENUMPROC, ctypes.wintypes.LPARAM]
+    user32.EnumWindows.restype = ctypes.wintypes.BOOL
+    user32.GetWindowThreadProcessId.argtypes = [ctypes.wintypes.HWND, ctypes.POINTER(ctypes.wintypes.DWORD)]
+    user32.IsWindowVisible.argtypes = [ctypes.wintypes.HWND]
+    user32.IsWindowVisible.restype = ctypes.wintypes.BOOL
+    user32.FindWindowW.argtypes = [ctypes.wintypes.LPCWSTR, ctypes.wintypes.LPCWSTR]
+    user32.FindWindowW.restype = ctypes.wintypes.HWND
+    user32.SetWindowPos.argtypes = [
+        ctypes.wintypes.HWND,
+        ctypes.wintypes.HWND,
+        ctypes.c_int,
+        ctypes.c_int,
+        ctypes.c_int,
+        ctypes.c_int,
+        ctypes.wintypes.UINT,
+    ]
+    user32.SetWindowPos.restype = ctypes.wintypes.BOOL
+
+    class MONITORINFO(ctypes.Structure):
+        _fields_ = [
+            ("cbSize", ctypes.wintypes.DWORD),
+            ("rcMonitor", ctypes.wintypes.RECT),
+            ("rcWork", ctypes.wintypes.RECT),
+            ("dwFlags", ctypes.wintypes.DWORD),
+        ]
+
+
+def _get_app_hwnd(window_title: str) -> Optional[int]:
+    """Finds the top-level visible window HWND for current process on Windows."""
+    if sys.platform != "win32":
+        return None
+
+    # 1. Direct title lookup
+    h1 = user32.FindWindowW(None, window_title)
+    if h1 and user32.IsWindowVisible(h1):
+        return h1
+
+    # 2. Process-specific window enumeration with 64-bit safe callback
+    pid = os.getpid()
+    found_hwnds = []
+
+    def enum_cb(hwnd, _):
+        p = ctypes.wintypes.DWORD()
+        user32.GetWindowThreadProcessId(hwnd, ctypes.byref(p))
+        if p.value == pid and user32.IsWindowVisible(hwnd):
+            found_hwnds.append(hwnd)
+        return True
+
+    user32.EnumWindows(WNDENUMPROC(enum_cb), 0)
+    return found_hwnds[0] if found_hwnds else None
+
+
+def _get_monitor_work_area_and_dpi(hwnd: int) -> Tuple[Tuple[int, int, int, int], float]:
+    """Retrieves work area (left, top, right, bottom) of the monitor containing hwnd and its DPI scale."""
+    work_rect = None
+    scale_factor = 1.0
+
+    if sys.platform == "win32" and hwnd:
+        MONITOR_DEFAULTTONEAREST = 2
+        hMonitor = user32.MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST)
+        if hMonitor:
+            mi = MONITORINFO()
+            mi.cbSize = ctypes.sizeof(MONITORINFO)
+            if user32.GetMonitorInfoW(hMonitor, ctypes.byref(mi)):
+                work_rect = (mi.rcWork.left, mi.rcWork.top, mi.rcWork.right, mi.rcWork.bottom)
+
+        # Get DPI
+        dpi = 96
+        try:
+            get_dpi_for_window = getattr(user32, "GetDpiForWindow", None)
+            if get_dpi_for_window:
+                dpi = get_dpi_for_window(hwnd)
+            else:
+                get_dpi_for_system = getattr(user32, "GetDpiForSystem", None)
+                if get_dpi_for_system:
+                    dpi = get_dpi_for_system()
+        except Exception:
+            dpi = 96
+        scale_factor = max(1.0, dpi / 96.0)
+
+    if not work_rect and sys.platform == "win32":
+        # Fallback to system SPI_GETWORKAREA
+        wa = ctypes.wintypes.RECT()
+        user32.SystemParametersInfoW(0x0030, 0, ctypes.byref(wa), 0)
+        work_rect = (wa.left, wa.top, wa.right, wa.bottom)
+    elif not work_rect:
+        work_rect = (0, 0, 1920, 1080)
+
+    return work_rect, scale_factor
 
 
 def _apply_taskbar_icon():
@@ -48,62 +149,35 @@ def _apply_taskbar_icon():
     SWP_NOZORDER = 0x0004
     SWP_FRAMECHANGED = 0x0020
 
-    hicon_big = ctypes.windll.user32.LoadImageW(None, ico_path, IMAGE_ICON, 48, 48, LR_LOADFROMFILE)
-    hicon_small = ctypes.windll.user32.LoadImageW(None, ico_path, IMAGE_ICON, 16, 16, LR_LOADFROMFILE)
+    hicon_big = user32.LoadImageW(None, ico_path, IMAGE_ICON, 48, 48, LR_LOADFROMFILE)
+    hicon_small = user32.LoadImageW(None, ico_path, IMAGE_ICON, 16, 16, LR_LOADFROMFILE)
+    SetClassLong = getattr(user32, "SetClassLongPtrW", None) or getattr(user32, "SetClassLongW", None)
 
-    SetClassLong = getattr(ctypes.windll.user32, "SetClassLongPtrW", None) or getattr(ctypes.windll.user32, "SetClassLongW", None)
-
-    pid = os.getpid()
-
-    # Retry polling for up to 10 seconds until GUI window is ready
-    for attempt in range(25):
+    for _ in range(25):
         time.sleep(0.3)
-        found_hwnds = []
+        hwnd = _get_app_hwnd("Entry Strategy Matrix")
+        if hwnd:
+            try:
+                cur_style = user32.GetWindowLongW(hwnd, GWL_STYLE)
+                user32.SetWindowLongW(hwnd, GWL_STYLE, cur_style | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX)
 
-        # 1. Try FindWindowW by title
-        h1 = ctypes.windll.user32.FindWindowW(None, "Entry Strategy Matrix")
-        if h1:
-            found_hwnds.append(h1)
+                cur_ex = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+                user32.SetWindowLongW(hwnd, GWL_EXSTYLE, cur_ex | WS_EX_APPWINDOW)
 
-        # 2. Enumerate visible top-level windows for this process
-        def enum_cb(hwnd, _):
-            p = ctypes.c_ulong()
-            ctypes.windll.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(p))
-            if p.value == pid and ctypes.windll.user32.IsWindowVisible(hwnd):
-                if hwnd not in found_hwnds:
-                    found_hwnds.append(hwnd)
-            return True
+                if hicon_big:
+                    user32.SendMessageW(hwnd, WM_SETICON, ICON_BIG, hicon_big)
+                if hicon_small:
+                    user32.SendMessageW(hwnd, WM_SETICON, ICON_SMALL, hicon_small)
 
-        WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_int, ctypes.c_int)
-        ctypes.windll.user32.EnumWindows(WNDENUMPROC(enum_cb), 0)
+                if SetClassLong and hicon_big:
+                    SetClassLong(hwnd, -14, hicon_big)
+                if SetClassLong and hicon_small:
+                    SetClassLong(hwnd, -34, hicon_small)
 
-        if found_hwnds:
-            for hwnd in found_hwnds:
-                try:
-                    # Set window style so Windows Taskbar generates live thumbnail and minimize/restore
-                    cur_style = ctypes.windll.user32.GetWindowLongW(hwnd, GWL_STYLE)
-                    ctypes.windll.user32.SetWindowLongW(hwnd, GWL_STYLE, cur_style | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX)
-
-                    cur_ex = ctypes.windll.user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
-                    ctypes.windll.user32.SetWindowLongW(hwnd, GWL_EXSTYLE, cur_ex | WS_EX_APPWINDOW)
-
-                    # Send WM_SETICON for taskbar icon and Alt-Tab thumbnail
-                    if hicon_big:
-                        ctypes.windll.user32.SendMessageW(hwnd, WM_SETICON, ICON_BIG, hicon_big)
-                    if hicon_small:
-                        ctypes.windll.user32.SendMessageW(hwnd, WM_SETICON, ICON_SMALL, hicon_small)
-
-                    # Set class long so it sticks permanently
-                    if SetClassLong and hicon_big:
-                        SetClassLong(hwnd, -14, hicon_big)
-                    if SetClassLong and hicon_small:
-                        SetClassLong(hwnd, -34, hicon_small)
-
-                    ctypes.windll.user32.SetWindowPos(hwnd, 0, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED)
-                except Exception as ex:
-                    logger.debug(f"Error attaching taskbar thumbnail/icon to hwnd {hwnd}: {ex}")
-
-            logger.info(f"Taskbar thumbnail and icon attached to {len(found_hwnds)} window(s).")
+                user32.SetWindowPos(hwnd, 0, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED)
+                logger.info(f"Taskbar thumbnail and icon attached cleanly to hwnd {hwnd}.")
+            except Exception as ex:
+                logger.debug(f"Error attaching taskbar thumbnail to hwnd {hwnd}: {ex}")
             break
 
 
@@ -112,11 +186,14 @@ class MatrixWindowAPI:
     def __init__(self, service: EntryStrategyService):
         self._service = service
         self._window: Optional[webview.Window] = None
+        self._is_simple_mode = False
+        self._prev_rect: Optional[Tuple[int, int, int, int]] = None  # (x, y, w, h)
+        self._last_title_str: Optional[str] = None
 
     def set_window(self, window: webview.Window):
         self._window = window
 
-    # Window Controls (Frameless Title Bar)
+    # Window Controls
     def minimize_window(self):
         if self._window:
             self._window.minimize()
@@ -129,9 +206,18 @@ class MatrixWindowAPI:
                 pass
 
     def close_window(self):
-        if self._window:
+        """Cleanly stops backend services and exits process without leaving zombie python processes."""
+        try:
             self._service.stop()
-            self._window.destroy()
+        except Exception:
+            pass
+        if self._window:
+            try:
+                self._window.destroy()
+            except Exception:
+                pass
+        # Force clean process termination
+        os._exit(0)
 
     # Data API
     def get_matrix_state(self) -> str:
@@ -146,84 +232,81 @@ class MatrixWindowAPI:
         res = self._service.clear_signals()
         return json.dumps(res)
 
-    def toggle_simple_mode(self, is_simple: bool) -> bool:
-        """Toggles between Full Matrix Window and Mini Simple Mode pinned near taskbar."""
+    def toggle_simple_mode(self, requested_state: bool) -> str:
+        """Toggles between Full Matrix Window and Mini Simple Mode pinned near taskbar.
+        Returns a verified JSON confirmation so frontend DOM only updates on confirmed success.
+        """
         if not self._window:
-            return False
+            return json.dumps({"success": False, "is_simple": self._is_simple_mode, "error": "No window"})
 
         try:
-            if is_simple:
-                # Save previous geometry
-                self._prev_width = getattr(self._window, "width", 1200)
-                self._prev_height = getattr(self._window, "height", 750)
-                self._prev_x = getattr(self._window, "x", 100)
-                self._prev_y = getattr(self._window, "y", 100)
+            hwnd = _get_app_hwnd(self._window.title)
 
-                target_w = 345
-                target_h = 44
-                target_x = 100
-                target_y = 100
+            if requested_state:
+                # Entering Simple Mode: Record EXACT user geometry before shrinking
+                cur_w = int(getattr(self._window, "width", 1200))
+                cur_h = int(getattr(self._window, "height", 750))
+                cur_x = int(getattr(self._window, "x", 100))
+                cur_y = int(getattr(self._window, "y", 100))
+                self._prev_rect = (cur_x, cur_y, cur_w, cur_h)
 
-                if sys.platform == "win32":
-                    import ctypes.wintypes
-                    work_area = ctypes.wintypes.RECT()
-                    ctypes.windll.user32.SystemParametersInfoW(0x0030, 0, ctypes.byref(work_area), 0)
-                    # Position at bottom-right right above taskbar
-                    target_x = max(10, work_area.right - target_w - 20)
-                    target_y = max(10, work_area.bottom - target_h - 10)
+                # Query specific monitor work area & DPI scaling for the monitor holding this window
+                (w_left, w_top, w_right, w_bottom), scale = _get_monitor_work_area_and_dpi(hwnd)
+
+                target_w = int(350 * scale)
+                target_h = int(46 * scale)
+
+                # Dock near bottom right, right above the taskbar of THAT monitor
+                target_x = max(w_left + 10, w_right - target_w - int(16 * scale))
+                target_y = max(w_top + 10, w_bottom - target_h - int(10 * scale))
 
                 self._window.resize(target_w, target_h)
                 self._window.move(target_x, target_y)
                 self._window.on_top = True
 
-                if sys.platform == "win32":
-                    pid = os.getpid()
-                    def enum_cb(hwnd, _):
-                        p = ctypes.c_ulong()
-                        ctypes.windll.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(p))
-                        if p.value == pid and ctypes.windll.user32.IsWindowVisible(hwnd):
-                            HWND_TOPMOST = -1
-                            SWP_SHOWWINDOW = 0x0040
-                            ctypes.windll.user32.SetWindowPos(hwnd, HWND_TOPMOST, target_x, target_y, target_w, target_h, SWP_SHOWWINDOW)
-                        return True
-                    WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_int, ctypes.c_int)
-                    ctypes.windll.user32.EnumWindows(WNDENUMPROC(enum_cb), 0)
-                return True
+                if sys.platform == "win32" and hwnd:
+                    HWND_TOPMOST = -1
+                    SWP_SHOWWINDOW = 0x0040
+                    user32.SetWindowPos(hwnd, HWND_TOPMOST, target_x, target_y, target_w, target_h, SWP_SHOWWINDOW)
+
+                self._is_simple_mode = True
+                return json.dumps({"success": True, "is_simple": True})
+
             else:
-                prev_w = max(1000, getattr(self, "_prev_width", 1200))
-                prev_h = max(650, getattr(self, "_prev_height", 750))
-                prev_x = max(0, getattr(self, "_prev_x", 100))
-                prev_y = max(0, getattr(self, "_prev_y", 100))
+                # Restoring Full Window: Restore exact saved geometry without artificial clamping
+                if self._prev_rect:
+                    rx, ry, rw, rh = self._prev_rect
+                else:
+                    rx, ry, rw, rh = 100, 100, 1200, 750
 
                 self._window.on_top = False
-                self._window.resize(prev_w, prev_h)
-                self._window.move(prev_x, prev_y)
+                self._window.resize(max(400, rw), max(300, rh))
+                self._window.move(rx, ry)
 
-                if sys.platform == "win32":
-                    pid = os.getpid()
-                    def enum_cb(hwnd, _):
-                        p = ctypes.c_ulong()
-                        ctypes.windll.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(p))
-                        if p.value == pid and ctypes.windll.user32.IsWindowVisible(hwnd):
-                            HWND_NOTOPMOST = -2
-                            SWP_SHOWWINDOW = 0x0040
-                            ctypes.windll.user32.SetWindowPos(hwnd, HWND_NOTOPMOST, prev_x, prev_y, prev_w, prev_h, SWP_SHOWWINDOW)
-                        return True
-                    WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_int, ctypes.c_int)
-                    ctypes.windll.user32.EnumWindows(WNDENUMPROC(enum_cb), 0)
-                return False
+                if sys.platform == "win32" and hwnd:
+                    HWND_NOTOPMOST = -2
+                    SWP_SHOWWINDOW = 0x0040
+                    user32.SetWindowPos(hwnd, HWND_NOTOPMOST, rx, ry, rw, rh, SWP_SHOWWINDOW)
+
+                self._is_simple_mode = False
+                return json.dumps({"success": True, "is_simple": False})
+
         except Exception as e:
             logger.error(f"Error toggling simple mode: {e}")
-            return False
+            return json.dumps({"success": False, "is_simple": self._is_simple_mode, "error": str(e)})
 
     def update_taskbar_title(self, buy_str: str, sell_str: str):
-        """Dynamically updates window title so Windows Taskbar previews show live signal totals."""
-        if self._window:
-            self._window.title = f"{buy_str} | {sell_str} - Entry Strategy Matrix"
+        """Dynamically updates window title only when text changes, avoiding event spam."""
+        if not self._window:
+            return
+        new_title = f"{buy_str} | {sell_str} - Entry Strategy Matrix"
+        if self._last_title_str != new_title:
+            self._last_title_str = new_title
+            self._window.title = new_title
 
 
 def launch_gui(service: Optional[EntryStrategyService] = None):
-    """Launches single-window frameless app."""
+    """Launches single-window frameless app with clean termination handling."""
     entry_service = service or EntryStrategyService()
     api = MatrixWindowAPI(entry_service)
 
@@ -240,6 +323,15 @@ def launch_gui(service: Optional[EntryStrategyService] = None):
         js_api=api,
     )
     api.set_window(window)
+
+    def on_window_closed():
+        try:
+            entry_service.stop()
+        except Exception:
+            pass
+        os._exit(0)
+
+    window.events.closed += on_window_closed
 
     # Start pywebview and invoke taskbar thumbnail and icon attachment
     webview.start(_apply_taskbar_icon, debug=False)
