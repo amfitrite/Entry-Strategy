@@ -1,0 +1,1010 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Entry Strategy Matrix</title>
+  <style>
+    :root {
+      --bg-window: #191a1e;
+      --bg-header: #1f2126;
+      --bg-body: #121316;
+      --bg-card: #181a1f;
+      --bg-card-hover: #21242b;
+      --border-card: #272a33;
+      --border-buy: #10b981;
+      --border-sell: #ef4444;
+      --bg-buy: rgba(16, 185, 129, 0.12);
+      --bg-sell: rgba(239, 68, 68, 0.12);
+      --text-main: #f3f4f6;
+      --text-muted: #8b929e;
+      --accent-green: #10b981;
+      --accent-red: #ef4444;
+      --accent-blue: #3b82f6;
+      --accent-yellow: #f59e0b;
+      --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      font-family: var(--font-family);
+    }
+
+    body {
+      background-color: var(--bg-window);
+      color: var(--text-main);
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* --- App Header (Frameless Chrome Bar) --- */
+    .app-header {
+      height: 42px;
+      background-color: var(--bg-header);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-left: 14px;
+      padding-right: 0;
+      border-bottom: 1px solid #282a32;
+      -webkit-app-region: drag;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      -webkit-app-region: no-drag;
+    }
+
+    .app-brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13.5px;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: 0.5px;
+    }
+
+    .app-brand span.bolt {
+      color: var(--accent-yellow);
+      font-size: 15px;
+    }
+
+    .header-center {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      -webkit-app-region: no-drag;
+    }
+
+    .pill {
+      font-size: 11.5px;
+      font-weight: 600;
+      padding: 3px 9px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: #17181c;
+      border: 1px solid #2d3038;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .pill-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+    }
+
+    .pill-green .pill-dot { background: var(--accent-green); box-shadow: 0 0 6px var(--accent-green); }
+    .pill-yellow .pill-dot { background: var(--accent-yellow); box-shadow: 0 0 6px var(--accent-yellow); }
+
+    .pill-buy-stat {
+      background: rgba(16, 185, 129, 0.14);
+      border: 1px solid rgba(16, 185, 129, 0.45);
+      color: var(--accent-green);
+    }
+
+    .pill-sell-stat {
+      background: rgba(239, 68, 68, 0.14);
+      border: 1px solid rgba(239, 68, 68, 0.45);
+      color: var(--accent-red);
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      height: 100%;
+      -webkit-app-region: no-drag;
+    }
+
+    .win-btn {
+      width: 44px;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #999;
+      font-size: 12.5px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .win-btn:hover { background: #32353e; color: #fff; }
+    .win-btn.close:hover { background: #e81123; color: #fff; }
+
+    /* --- Filter & Action Toolbar --- */
+    .filter-bar {
+      height: 40px;
+      background: #15171a;
+      border-bottom: 1px solid #252830;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+    }
+
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .filter-btn {
+      background: transparent;
+      border: 1px solid #2b2e37;
+      color: var(--text-muted);
+      font-size: 11.5px;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .filter-btn:hover {
+      background: #252831;
+      color: #fff;
+    }
+
+    .filter-btn.active {
+      background: #2b303d;
+      border-color: #3b82f6;
+      color: #ffffff;
+    }
+
+    .action-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-action {
+      background: #22252c;
+      border: 1px solid #333742;
+      color: #cbd5e1;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .btn-action:hover {
+      background: #2d313b;
+      color: #fff;
+    }
+
+    .btn-test-buy {
+      border-color: rgba(16, 185, 129, 0.4);
+      color: var(--accent-green);
+    }
+    .btn-test-buy:hover {
+      background: rgba(16, 185, 129, 0.15);
+      border-color: var(--accent-green);
+    }
+
+    .btn-test-sell {
+      border-color: rgba(239, 68, 68, 0.4);
+      color: var(--accent-red);
+    }
+    .btn-test-sell:hover {
+      background: rgba(239, 68, 68, 0.15);
+      border-color: var(--accent-red);
+    }
+
+    /* --- Main Active Signal Viewport --- */
+    .viewport {
+      flex: 1;
+      padding: 16px 20px;
+      overflow-y: auto;
+      background: var(--bg-body);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Responsive Grid for Matched Signal Cards */
+    .signal-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+      grid-gap: 12px;
+      width: 100%;
+    }
+
+    /* Active Signal Card */
+    .signal-card {
+      border-radius: 8px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      cursor: pointer;
+      transition: transform 0.1s, box-shadow 0.15s;
+      position: relative;
+    }
+
+    .signal-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    }
+
+    .signal-card.buy-card {
+      background: var(--bg-buy);
+      border: 1.5px solid var(--border-buy);
+    }
+
+    .signal-card.sell-card {
+      background: var(--bg-sell);
+      border: 1.5px solid var(--border-sell);
+    }
+
+    .signal-card.flash-anim {
+      animation: pulse-flash 1.2s ease-out;
+    }
+
+    @keyframes pulse-flash {
+      0% { box-shadow: 0 0 24px rgba(255, 255, 255, 0.8); }
+      100% { box-shadow: none; }
+    }
+
+    .card-top-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .card-left-meta {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .pattern-id-pill {
+      font-size: 10.5px;
+      font-weight: 800;
+      color: #949ba4;
+      background: #17181c;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .pattern-cat-pill {
+      font-size: 10px;
+      font-weight: 700;
+      color: #3b82f6;
+      background: #1c212d;
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+
+    .time-badge {
+      font-size: 11px;
+      color: #cbd5e1;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Pattern Title - Green for BUY, Red for SELL */
+    .pattern-title {
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 0.2px;
+    }
+
+    .buy-card .pattern-title {
+      color: var(--accent-green) !important;
+    }
+
+    .sell-card .pattern-title {
+      color: var(--accent-red) !important;
+    }
+
+    /* Price & Direction Strip */
+    .action-strip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(0, 0, 0, 0.25);
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .dir-badge {
+      font-size: 12px;
+      font-weight: 800;
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+
+    .buy-card .dir-badge {
+      background: var(--accent-green);
+      color: #000;
+    }
+
+    .sell-card .dir-badge {
+      background: var(--accent-red);
+      color: #fff;
+    }
+
+    .price-readout {
+      font-size: 13.5px;
+      font-weight: 800;
+      color: #ffffff;
+    }
+
+    /* Reason Snippet */
+    .reason-snippet {
+      font-size: 11.5px;
+      color: #cbd5e1;
+      line-height: 1.4;
+      background: rgba(0, 0, 0, 0.15);
+      padding: 6px 8px;
+      border-radius: 5px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .reason-snippet span.check {
+      color: var(--accent-green);
+      font-weight: 800;
+      margin-right: 4px;
+    }
+
+    .click-hint {
+      font-size: 10px;
+      color: #717885;
+      text-align: right;
+    }
+
+    /* --- Radar Empty State (Zero Idle Clutter) --- */
+    .radar-empty-state {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      color: var(--text-muted);
+    }
+
+    .radar-pulse-ring {
+      position: relative;
+      width: 80px;
+      height: 80px;
+    }
+
+    .radar-circle {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      border: 2px solid var(--accent-blue);
+      opacity: 0;
+      animation: radar-sweep 2s infinite ease-out;
+    }
+
+    .radar-circle:nth-child(2) {
+      animation-delay: 0.6s;
+    }
+
+    .radar-circle:nth-child(3) {
+      animation-delay: 1.2s;
+    }
+
+    .radar-core {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent-blue);
+      box-shadow: 0 0 14px var(--accent-blue);
+    }
+
+    @keyframes radar-sweep {
+      0% { transform: scale(0.3); opacity: 0.9; }
+      100% { transform: scale(1.6); opacity: 0; }
+    }
+
+    .radar-title {
+      font-size: 15px;
+      font-weight: 800;
+      color: #e2e8f0;
+      letter-spacing: 0.3px;
+    }
+
+    .radar-desc {
+      font-size: 12.5px;
+      color: #64748b;
+      max-width: 440px;
+      text-align: center;
+      line-height: 1.5;
+    }
+
+    /* --- Modal Dialog (Popup Detail) --- */
+    .modal-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .modal-card {
+      width: 520px;
+      max-width: 90vw;
+      background: #1b1d22;
+      border: 1px solid #323642;
+      border-radius: 10px;
+      box-shadow: 0 12px 35px rgba(0, 0, 0, 0.6);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      animation: modal-pop 0.15s ease-out;
+    }
+
+    @keyframes modal-pop {
+      from { transform: scale(0.94); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    .modal-header {
+      padding: 12px 18px;
+      background: #21242b;
+      border-bottom: 1px solid #2e323c;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .modal-title-row {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+    }
+
+    .modal-title {
+      font-size: 15px;
+      font-weight: 800;
+      color: #ffffff;
+    }
+
+    .modal-category-badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: #2b2f3a;
+      color: var(--accent-blue);
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .modal-close-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      background: transparent;
+      border: none;
+      color: #9aa0ac;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .modal-close-btn:hover { background: #343844; color: #fff; }
+
+    .modal-body {
+      padding: 18px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      max-height: 70vh;
+      overflow-y: auto;
+    }
+
+    .modal-summary-box {
+      background: #141518;
+      border: 1px solid #262932;
+      border-radius: 8px;
+      padding: 12px 16px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .summary-item {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .summary-label {
+      font-size: 10.5px;
+      color: var(--text-muted);
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .summary-val {
+      font-size: 14px;
+      font-weight: 800;
+      color: #fff;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .summary-val.buy { color: var(--accent-green); }
+    .summary-val.sell { color: var(--accent-red); }
+
+    .modal-desc-box {
+      font-size: 12px;
+      line-height: 1.5;
+      color: #abb2bf;
+      background: #17181c;
+      padding: 10px 14px;
+      border-radius: 6px;
+      border-left: 3px solid var(--accent-blue);
+    }
+
+    .reasons-container {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .reasons-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #d1d5db;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .reason-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .reason-item {
+      font-size: 12px;
+      background: #17191d;
+      border: 1px solid #272a33;
+      padding: 8px 12px;
+      border-radius: 6px;
+      color: #e2e8f0;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      line-height: 1.4;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .reason-check {
+      color: var(--accent-green);
+      font-weight: 800;
+      font-size: 12px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .modal-footer {
+      padding: 10px 18px;
+      background: #17191d;
+      border-top: 1px solid #272a33;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .btn-close-modal {
+      background: #2b2f3a;
+      border: 1px solid #393e4d;
+      color: #fff;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .btn-close-modal:hover { background: #373c49; }
+  </style>
+</head>
+<body>
+
+  <!-- Top App Bar (Chrome Frameless Draggable) -->
+  <header class="app-header">
+    <div class="header-left">
+      <div class="app-brand">
+        <span class="bolt">⚡</span>
+        <span>ENTRY STRATEGY MATRIX</span>
+      </div>
+      <div class="pill pill-green" id="bridgePill">
+        <div class="pill-dot"></div>
+        <span id="bridgeText">PORT 5558 LIVE</span>
+      </div>
+    </div>
+
+    <div class="header-center">
+      <div class="pill">
+        <span style="color:#999;">SYMBOL:</span>
+        <strong id="symbolText" style="color:#fff;">XAUUSD</strong>
+      </div>
+      <div class="pill">
+        <span style="color:#999;">PRICE:</span>
+        <strong id="priceText" style="color:#fff;">2745.00</strong>
+      </div>
+      <div class="pill">
+        <span style="color:#999;">SPREAD:</span>
+        <strong id="spreadText" style="color:#fff;">1.4</strong>
+      </div>
+      <div class="pill">
+        <span style="color:#999;">TICKS:</span>
+        <strong id="tpsText" style="color:#fff;">0 t/s</strong>
+      </div>
+
+      <!-- Live Signal Counters in Menu Bar -->
+      <div class="pill pill-buy-stat" title="Sinyal BUY Terpenuhi (Aktif / Total Sesi)">
+        <span style="font-weight:800;">▲ BUY:</span>
+        <strong id="headerBuyCount" style="font-size:12.5px; font-weight:800;">0</strong>
+      </div>
+      <div class="pill pill-sell-stat" title="Sinyal SELL Terpenuhi (Aktif / Total Sesi)">
+        <span style="font-weight:800;">▼ SELL:</span>
+        <strong id="headerSellCount" style="font-size:12.5px; font-weight:800;">0</strong>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <div class="win-btn" onclick="winMin()">&#8722;</div>
+      <div class="win-btn" onclick="winMax()">&#9633;</div>
+      <div class="win-btn close" onclick="winClose()">&#10005;</div>
+    </div>
+  </header>
+
+  <!-- Filter & Action Strip -->
+  <div class="filter-bar">
+    <div class="filter-group">
+      <button class="filter-btn active" id="btnFilterAll" onclick="setDirectionFilter('ALL', this)">Semua Sinyal (0)</button>
+      <button class="filter-btn" id="btnFilterBuy" onclick="setDirectionFilter('BUY', this)" style="color:var(--accent-green);">BUY Saja (0)</button>
+      <button class="filter-btn" id="btnFilterSell" onclick="setDirectionFilter('SELL', this)" style="color:var(--accent-red);">SELL Saja (0)</button>
+    </div>
+
+    <div class="action-group">
+      <span id="signalCountText" style="color:var(--accent-green); font-size:11.5px; font-weight:700; margin-right:8px;">0 Sinyal Terpenuhi</span>
+      <button class="btn-action btn-test-buy" onclick="runTestTrigger('BUY')">+ Test BUY</button>
+      <button class="btn-action btn-test-sell" onclick="runTestTrigger('SELL')">+ Test SELL</button>
+      <button class="btn-action" onclick="clearAllSignals()">Hapus Sinyal</button>
+    </div>
+  </div>
+
+  <!-- Viewport Area (Only Active Signals or Radar Scanning Screen) -->
+  <main class="viewport" id="viewportMain">
+    <div class="signal-grid" id="signalGrid">
+      <!-- Active signal cards dynamically injected here -->
+    </div>
+
+    <div class="radar-empty-state" id="radarEmpty">
+      <div class="radar-pulse-ring">
+        <div class="radar-circle"></div>
+        <div class="radar-circle"></div>
+        <div class="radar-circle"></div>
+        <div class="radar-core"></div>
+      </div>
+      <div class="radar-title">MEMINDAI 40 KELUARGA POLA ENTRY (PORT 5558)</div>
+      <div class="radar-desc">
+        Kondisi pasar sedang dipindai secara agnostik. Pola yang idle tidak dimunculkan.<br>
+        Begitu ada pola terpenuhi, sinyal <strong>BUY (Hijau)</strong> atau <strong>SELL (Merah)</strong> akan langsung muncul di sini.
+      </div>
+    </div>
+  </main>
+
+  <!-- Pop-up Detail Modal -->
+  <div class="modal-backdrop" id="detailModal" onclick="closeModal(event)">
+    <div class="modal-card" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-title-row">
+          <span class="modal-title" id="modalPatternName">Nama Strategi</span>
+          <span class="modal-category-badge" id="modalCategoryBadge">Candle</span>
+        </div>
+        <button class="modal-close-btn" onclick="closeModalDirect()">&#10005;</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="modal-summary-box">
+          <div class="summary-item">
+            <span class="summary-label">Arah Sinyal</span>
+            <span class="summary-val" id="modalDirection">BUY</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">Harga Entry</span>
+            <span class="summary-val" id="modalPrice">2745.20</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">Waktu Trigger</span>
+            <span class="summary-val" id="modalTime">22:58:14.320</span>
+          </div>
+        </div>
+
+        <div class="modal-desc-box" id="modalDescription">
+          Deskripsi singkat logika keluarga strategi ini...
+        </div>
+
+        <div class="reasons-container">
+          <div class="reasons-title">
+            <span>📋 Detail Alasan Algoritma (Condition Checklist):</span>
+          </div>
+          <ul class="reason-list" id="modalReasonsList"></ul>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-close-modal" onclick="closeModalDirect()">Tutup (Esc)</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let activePatterns = [];
+    let currentDirFilter = 'ALL';
+    let previousSignalTimestamps = {};
+
+    function winMin() {
+      if (window.pywebview && window.pywebview.api) window.pywebview.api.minimize_window();
+    }
+    function winMax() {
+      if (window.pywebview && window.pywebview.api) window.pywebview.api.toggle_maximize();
+    }
+    function winClose() {
+      if (window.pywebview && window.pywebview.api) window.pywebview.api.close_window();
+    }
+
+    function setDirectionFilter(dir, btn) {
+      currentDirFilter = dir;
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderSignals();
+    }
+
+    async function clearAllSignals() {
+      if (window.pywebview && window.pywebview.api) {
+        await window.pywebview.api.clear_signals();
+        activePatterns = [];
+        renderSignals();
+      }
+    }
+
+    async function runTestTrigger(dir) {
+      if (window.pywebview && window.pywebview.api) {
+        // Random sample pattern ID from 1 to 40
+        const sampleIds = [1, 7, 11, 13, 14, 25, 35, 36, 40];
+        const randomId = sampleIds[Math.floor(Math.random() * sampleIds.length)];
+        await window.pywebview.api.trigger_manual_test(randomId, dir);
+        syncState();
+      }
+    }
+
+    function renderSignals() {
+      const grid = document.getElementById('signalGrid');
+      const emptyEl = document.getElementById('radarEmpty');
+
+      // Filter: Only patterns with active BUY or SELL
+      const matched = activePatterns.filter(p => {
+        if (!p.active || p.direction === 'NONE') return false;
+        if (currentDirFilter === 'ALL') return true;
+        return p.direction === currentDirFilter;
+      });
+
+      document.getElementById('signalCountText').innerText = `${matched.length} Sinyal Terpenuhi`;
+
+      if (matched.length === 0) {
+        grid.style.display = 'none';
+        emptyEl.style.display = 'flex';
+        grid.innerHTML = '';
+        return;
+      }
+
+      grid.style.display = 'grid';
+      emptyEl.style.display = 'none';
+
+      grid.innerHTML = matched.map(p => {
+        const isBuy = p.direction === 'BUY';
+        const cardClass = isBuy ? 'signal-card buy-card' : 'signal-card sell-card';
+        const dirLabel = isBuy ? '▲ BUY' : '▼ SELL';
+        
+        let flashClass = '';
+        if (p.last_signal) {
+          const prevTs = previousSignalTimestamps[p.id];
+          if (!prevTs || prevTs !== p.last_signal.timestamp_ms) {
+            previousSignalTimestamps[p.id] = p.last_signal.timestamp_ms;
+            flashClass = ' flash-anim';
+          }
+        }
+
+        // Primary reason snippet
+        let snippetText = "Kondisi matematis terpenuhi penuh.";
+        if (p.last_signal && p.last_signal.reasons && p.last_signal.reasons.length > 0) {
+          snippetText = p.last_signal.reasons[0];
+        }
+
+        return `
+          <div class="${cardClass}${flashClass}" onclick="openDetailModal(${p.id})">
+            <div class="card-top-row">
+              <div class="card-left-meta">
+                <span class="pattern-id-pill">#${String(p.id).padStart(2, '0')}</span>
+                <span class="pattern-cat-pill">${p.category}</span>
+              </div>
+              <span class="time-badge">${p.time_ago}</span>
+            </div>
+
+            <div class="pattern-title">${p.name}</div>
+
+            <div class="action-strip">
+              <span class="dir-badge">${dirLabel}</span>
+              <span class="price-readout">${p.price_str}</span>
+            </div>
+
+            <div class="reason-snippet">
+              <span class="check">[✓]</span>${snippetText}
+            </div>
+
+            <div class="click-hint">Klik untuk detail alasan lengkap &rarr;</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function openDetailModal(patternId) {
+      const p = activePatterns.find(x => x.id === patternId);
+      if (!p || !p.last_signal) return;
+
+      const sig = p.last_signal;
+      document.getElementById('modalPatternName').innerText = `#${String(p.id).padStart(2, '0')} ${p.name}`;
+      document.getElementById('modalCategoryBadge').innerText = p.category;
+      document.getElementById('modalDescription').innerText = p.description;
+
+      const dirEl = document.getElementById('modalDirection');
+      dirEl.innerText = sig.direction;
+      dirEl.className = 'summary-val ' + (sig.direction === 'BUY' ? 'buy' : 'sell');
+
+      document.getElementById('modalPrice').innerText = sig.price.toFixed(2);
+      document.getElementById('modalTime').innerText = sig.time_str || new Date(sig.timestamp_ms).toLocaleTimeString();
+
+      const listEl = document.getElementById('modalReasonsList');
+      if (sig.reasons && sig.reasons.length > 0) {
+        listEl.innerHTML = sig.reasons.map(r => `
+          <li class="reason-item">
+            <span class="reason-check">[✓]</span>
+            <span>${r}</span>
+          </li>
+        `).join('');
+      } else {
+        listEl.innerHTML = `
+          <li class="reason-item">
+            <span class="reason-check">[✓]</span>
+            <span>Seluruh kondisi batas dan trigger matematis pola terpenuhi secara valid.</span>
+          </li>
+        `;
+      }
+
+      document.getElementById('detailModal').classList.add('open');
+    }
+
+    function closeModal(event) {
+      if (event.target.id === 'detailModal') closeModalDirect();
+    }
+    function closeModalDirect() {
+      document.getElementById('detailModal').classList.remove('open');
+    }
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeModalDirect();
+    });
+
+    async function syncState() {
+      try {
+        if (window.pywebview && window.pywebview.api) {
+          const res = await window.pywebview.api.get_matrix_state();
+          const state = (typeof res === 'string') ? JSON.parse(res) : res;
+          
+          if (state && state.bridge) {
+            document.getElementById('symbolText').innerText = state.bridge.symbol || 'XAUUSD';
+            document.getElementById('priceText').innerText = state.bridge.price.toFixed(2);
+            document.getElementById('spreadText').innerText = state.bridge.spread.toFixed(2);
+            document.getElementById('tpsText').innerText = `${state.bridge.tps || 0} t/s`;
+            
+            const pillEl = document.getElementById('bridgePill');
+            const txtEl = document.getElementById('bridgeText');
+            if (state.bridge.connected) {
+              pillEl.className = 'pill pill-green';
+              txtEl.innerText = `PORT ${state.bridge.port} LIVE`;
+            } else {
+              pillEl.className = 'pill pill-yellow';
+              txtEl.innerText = `PORT ${state.bridge.port} (WAITING MT5)`;
+            }
+          }
+
+          if (state && state.stats) {
+            const buyCnt = state.stats.active_buy || 0;
+            const sellCnt = state.stats.active_sell || 0;
+            const totBuy = state.stats.total_buy || 0;
+            const totSell = state.stats.total_sell || 0;
+
+            const buyEl = document.getElementById('headerBuyCount');
+            const sellEl = document.getElementById('headerSellCount');
+            if (buyEl) buyEl.innerText = `${buyCnt} (Tot: ${totBuy})`;
+            if (sellEl) sellEl.innerText = `${sellCnt} (Tot: ${totSell})`;
+
+            const bAll = document.getElementById('btnFilterAll');
+            const bBuy = document.getElementById('btnFilterBuy');
+            const bSell = document.getElementById('btnFilterSell');
+            if (bAll) bAll.innerText = `Semua Sinyal (${buyCnt + sellCnt})`;
+            if (bBuy) bBuy.innerText = `BUY Saja (${buyCnt})`;
+            if (bSell) bSell.innerText = `SELL Saja (${sellCnt})`;
+          }
+
+          if (state && state.patterns) {
+            // Keep all patterns in memory
+            activePatterns = state.patterns;
+            renderSignals();
+          }
+        }
+      } catch (err) {
+        console.error("Sync error:", err);
+      }
+    }
+
+    setInterval(syncState, 200);
+    window.addEventListener('pywebviewready', syncState);
+  </script>
+</body>
+</html>
