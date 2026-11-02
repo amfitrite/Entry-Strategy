@@ -101,7 +101,18 @@ class EntryStrategyService:
             # Fall back to simulator if MT5 disconnects
             self.simulator.start()
 
+    def _update_all_lifecycles(self, current_price: float, current_ts_ms: int, spread: float = 0.0):
+        """Updates lifecycle state (ACTIVE -> PENDING_CONFIRMATION -> CONFIRMED / INVALIDATED / EXPIRED)
+        for all tracked signals based on live market price and elapsed time.
+        """
+        for sig in self.latest_signals_by_pattern.values():
+            sig.update_lifecycle(current_price, current_ts_ms, spread)
+
     def _evaluate_patterns(self):
+        now_ms = int(time.time() * 1000)
+        with self._lock:
+            self._update_all_lifecycles(self.latest_price, now_ms, self.latest_spread)
+
         fired = self.registry.evaluate_all(self.buffer)
         if fired:
             with self._lock:
@@ -116,34 +127,52 @@ class EntryStrategyService:
     def get_matrix_state(self) -> Dict[str, Any]:
         """Provides complete state for UI rendering in a single fast JSON packet."""
         with self._lock:
+            now_ms = int(time.time() * 1000)
+            self._update_all_lifecycles(self.latest_price, now_ms, self.latest_spread)
+
             patterns = self.registry.get_matrix_status()
             recent_sigs = [s.to_dict() for s in list(self.recent_signals)[:20]]
             
-            # Format patterns with quick active state
+            # Format patterns with formal lifecycle state machine
             pattern_cards = []
             for p in patterns:
                 pid = p["pattern_id"]
                 last_sig = self.latest_signals_by_pattern.get(pid)
                 
-                # Active signal if triggered within last 20 seconds
                 is_active = False
+                status_str = "IDLE"
+                status_reason = ""
                 dir_val = "NONE"
                 time_ago_str = "IDLE"
                 px_str = ""
                 
                 if last_sig:
-                    elapsed_sec = (int(time.time() * 1000) - last_sig.timestamp_ms) / 1000.0
-                    if elapsed_sec <= 25.0:
+                    elapsed_sec = max(0.0, (now_ms - last_sig.timestamp_ms) / 1000.0)
+                    status_str = last_sig.status.value
+                    status_reason = last_sig.status_reason
+
+                    if last_sig.is_alive:
                         is_active = True
                         dir_val = last_sig.direction.value
                         if elapsed_sec < 2.0:
                             time_ago_str = "JUST NOW"
                         else:
                             time_ago_str = f"{int(elapsed_sec)}s ago"
-                        px_str = f"@{last_sig.price:.2f}"
-                    else:
-                        dir_val = "NONE"
-                        time_ago_str = f"{int(elapsed_sec)}s ago" if elapsed_sec < 120 else "IDLE"
+                        px_str = f"@{last_sig.trigger_price:.2f}"
+
+                    elif last_sig.is_terminal:
+                        # Grace display period: remain visible for 8s so user sees why it ended
+                        term_ts = last_sig.invalidated_time_ms or last_sig.expired_time_ms or last_sig.timestamp_ms
+                        term_elapsed = max(0.0, (now_ms - term_ts) / 1000.0)
+                        if term_elapsed <= 8.0:
+                            is_active = True
+                            dir_val = last_sig.direction.value
+                            time_ago_str = f"{last_sig.status.value} ({int(term_elapsed)}s ago)"
+                            px_str = f"@{last_sig.trigger_price:.2f}"
+                        else:
+                            is_active = False
+                            dir_val = "NONE"
+                            time_ago_str = "IDLE"
 
                 pattern_cards.append({
                     "id": pid,
@@ -153,14 +182,16 @@ class EntryStrategyService:
                     "role": p.get("role", "ENTRY"),
                     "phenomenon": p.get("phenomenon", ""),
                     "active": is_active,
+                    "status": status_str,
+                    "status_reason": status_reason,
                     "direction": dir_val,
                     "time_ago": time_ago_str,
                     "price_str": px_str,
                     "last_signal": last_sig.to_dict() if last_sig else None,
                 })
 
-            active_buy = sum(1 for c in pattern_cards if c["active"] and c["direction"] == "BUY")
-            active_sell = sum(1 for c in pattern_cards if c["active"] and c["direction"] == "SELL")
+            active_buy = sum(1 for c in pattern_cards if c["active"] and c["direction"] == "BUY" and c["status"] in ("ACTIVE", "PENDING_CONFIRMATION", "CONFIRMED"))
+            active_sell = sum(1 for c in pattern_cards if c["active"] and c["direction"] == "SELL" and c["status"] in ("ACTIVE", "PENDING_CONFIRMATION", "CONFIRMED"))
 
             return {
                 "bridge": {
@@ -205,16 +236,22 @@ class EntryStrategyService:
         now_ms = int(time.time() * 1000)
         px = self.latest_price
         
+        inval_px = round(px - 1.50 if dir_enum == SignalDirection.BUY else px + 1.50, 2)
         sig = EntrySignal(
             pattern_id=pattern_id,
             family_name=pat.name,
             direction=dir_enum,
-            price=px,
+            reference_price=px,
+            trigger_price=px,
             timestamp_ms=now_ms,
+            invalidation_price=inval_px,
+            pattern_role=pat.role,
+            phenomenon=pat.phenomenon or "Uji coba simulasi pemicu pola manual",
+            event_id=f"manual_test_{pattern_id}_{now_ms}",
             reasons=[
                 f"Sinyal uji coba manual terpicu ({direction_str.upper()})",
                 f"Kondisi algoritma {pat.name} terpenuhi penuh",
-                f"Harga trigger: {px:.2f} | Spread: {self.latest_spread:.2f} pts",
+                f"Harga trigger: {px:.2f} | Invalidation: {inval_px:.2f} | Spread: {self.latest_spread:.2f} pts",
             ],
             metrics={"test_mode": True},
         )

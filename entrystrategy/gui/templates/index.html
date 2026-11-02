@@ -415,6 +415,43 @@
       text-transform: uppercase;
     }
 
+    /* Lifecycle Status Badges */
+    .status-pill {
+      font-size: 9.5px;
+      font-weight: 800;
+      padding: 2px 7px;
+      border-radius: 4px;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+      font-variant-numeric: tabular-nums;
+    }
+    .status-active {
+      background: rgba(16, 185, 129, 0.22);
+      color: #10b981;
+      border: 1px solid rgba(16, 185, 129, 0.5);
+    }
+    .status-pending {
+      background: rgba(245, 158, 11, 0.2);
+      color: #f59e0b;
+      border: 1px solid rgba(245, 158, 11, 0.5);
+    }
+    .status-confirmed {
+      background: rgba(59, 130, 246, 0.25);
+      color: #60a5fa;
+      border: 1px solid #3b82f6;
+      box-shadow: 0 0 8px rgba(59, 130, 246, 0.3);
+    }
+    .status-invalidated {
+      background: rgba(239, 68, 68, 0.2);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.5);
+    }
+    .status-expired {
+      background: #232731;
+      color: #949ba4;
+      border: 1px solid #3e4451;
+    }
+
     .time-badge {
       font-size: 11px;
       color: #cbd5e1;
@@ -913,6 +950,13 @@
             <span class="summary-label">Waktu Trigger</span>
             <span class="summary-val" id="modalTime" style="font-size:12px; font-weight:700;">22:58:14.320</span>
           </div>
+          <div class="summary-item" style="grid-column: span 2;">
+            <span class="summary-label">Status Siklus Hidup Sinyal</span>
+            <div style="display:flex; align-items:center; gap:8px; margin-top:3px;">
+              <span class="status-pill status-active" id="modalStatusBadge">ACTIVE</span>
+              <span id="modalStatusReason" style="font-size:11.5px; color:#94a3b8; font-weight:600;">Kondisi entry pola terpenuhi</span>
+            </div>
+          </div>
         </div>
 
         <div class="modal-desc-box" id="modalPhenomenonBox" style="border-left: 3px solid #e5c07b; background:#181612; margin-bottom:-4px;">
@@ -1015,9 +1059,38 @@
           }
         }
 
-        // Primary reason snippet
+        // Lifecycle status badge determination
+        const statusVal = (p.status || (p.last_signal && p.last_signal.status) || 'ACTIVE').toUpperCase();
+        let statusBadgeClass = 'status-active';
+        let statusLabel = 'ACTIVE';
+        if (statusVal === 'PENDING_CONFIRMATION') {
+          statusBadgeClass = 'status-pending';
+          statusLabel = 'PENDING';
+        } else if (statusVal === 'CONFIRMED') {
+          statusBadgeClass = 'status-confirmed';
+          statusLabel = 'CONFIRMED';
+        } else if (statusVal === 'INVALIDATED') {
+          statusBadgeClass = 'status-invalidated';
+          statusLabel = 'INVALIDATED';
+        } else if (statusVal === 'EXPIRED') {
+          statusBadgeClass = 'status-expired';
+          statusLabel = 'EXPIRED';
+        }
+        const statusBadgeHtml = `<span class="status-pill ${statusBadgeClass}">${statusLabel}</span>`;
+
+        // Snippet text reflecting lifecycle
+        let snippetPrefix = '<span class="check">[✓]</span>';
         let snippetText = "Kondisi matematis terpenuhi penuh.";
-        if (p.last_signal && p.last_signal.reasons && p.last_signal.reasons.length > 0) {
+        if (statusVal === 'INVALIDATED') {
+          snippetPrefix = '<span style="color:var(--accent-red); font-weight:800; margin-right:4px;">[✕]</span>';
+          snippetText = p.status_reason || (p.last_signal && p.last_signal.status_reason) || "Level invalidasi tertembus.";
+        } else if (statusVal === 'CONFIRMED') {
+          snippetPrefix = '<span style="color:#60a5fa; font-weight:800; margin-right:4px;">[★]</span>';
+          snippetText = p.status_reason || (p.last_signal && p.last_signal.status_reason) || "Pergerakan harga terkonfirmasi.";
+        } else if (statusVal === 'EXPIRED') {
+          snippetPrefix = '<span style="color:#94a3b8; font-weight:800; margin-right:4px;">[⏱]</span>';
+          snippetText = p.status_reason || (p.last_signal && p.last_signal.status_reason) || "Batas usia sinyal tercapai.";
+        } else if (p.last_signal && p.last_signal.reasons && p.last_signal.reasons.length > 0) {
           snippetText = p.last_signal.reasons[0];
         }
 
@@ -1027,6 +1100,7 @@
               <div class="card-left-meta">
                 <span class="pattern-id-pill">#${String(p.id).padStart(2, '0')}</span>
                 <span class="pattern-cat-pill">${p.category}</span>
+                ${statusBadgeHtml}
               </div>
               <span class="time-badge">${p.time_ago}</span>
             </div>
@@ -1039,7 +1113,7 @@
             </div>
 
             <div class="reason-snippet">
-              <span class="check">[✓]</span>${snippetText}
+              ${snippetPrefix}<span>${snippetText}</span>
             </div>
 
             <div class="click-hint">Klik untuk detail alasan lengkap &rarr;</div>
@@ -1066,6 +1140,22 @@
       document.getElementById('modalRefPrice').innerText = sig.reference_price != null ? sig.reference_price.toFixed(2) : '-';
       document.getElementById('modalInvalPrice').innerText = sig.invalidation_price != null ? sig.invalidation_price.toFixed(2) : '-';
       document.getElementById('modalTime').innerText = sig.time_str || new Date(sig.timestamp_ms).toLocaleTimeString();
+
+      const stVal = (sig.status || p.status || 'ACTIVE').toUpperCase();
+      const statusBadge = document.getElementById('modalStatusBadge');
+      const statusReason = document.getElementById('modalStatusReason');
+      if (statusBadge) {
+        statusBadge.innerText = stVal;
+        statusBadge.className = 'status-pill ' + (
+          stVal === 'CONFIRMED' ? 'status-confirmed' :
+          stVal === 'PENDING_CONFIRMATION' ? 'status-pending' :
+          stVal === 'INVALIDATED' ? 'status-invalidated' :
+          stVal === 'EXPIRED' ? 'status-expired' : 'status-active'
+        );
+      }
+      if (statusReason) {
+        statusReason.innerText = sig.status_reason || p.status_reason || 'Kondisi entry pola terpenuhi';
+      }
 
       const phenomBox = document.getElementById('modalPhenomenonBox');
       const phenomText = sig.phenomenon || p.phenomenon;
