@@ -107,15 +107,120 @@
     .pill-yellow .pill-dot { background: var(--accent-yellow); box-shadow: 0 0 6px var(--accent-yellow); }
 
     .pill-buy-stat {
-      background: rgba(16, 185, 129, 0.14);
-      border: 1px solid rgba(16, 185, 129, 0.45);
-      color: var(--accent-green);
+      background: #0d281d;
+      border: 1px solid #1a5e3a;
+      color: #00e676;
+      border-radius: 9999px;
+      padding: 3px 12px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.2px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      cursor: default;
     }
 
     .pill-sell-stat {
-      background: rgba(239, 68, 68, 0.14);
-      border: 1px solid rgba(239, 68, 68, 0.45);
-      color: var(--accent-red);
+      background: #2b1114;
+      border: 1px solid #732228;
+      color: #ff5252;
+      border-radius: 9999px;
+      padding: 3px 12px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.2px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      cursor: default;
+    }
+
+    .btn-simple-toggle {
+      background: #1f232b;
+      border: 1px solid #333846;
+      color: #cbd5e1;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      margin-right: 8px;
+      transition: all 0.15s;
+    }
+    .btn-simple-toggle:hover {
+      background: #2b303c;
+      color: #fff;
+      border-color: #4f566b;
+    }
+
+    /* --- Simple Mode (Compact Taskbar Mini-Bar) --- */
+    body.simple-mode {
+      background: transparent !important;
+      overflow: hidden !important;
+    }
+    body.simple-mode .app-header,
+    body.simple-mode .filter-bar,
+    body.simple-mode .viewport,
+    body.simple-mode .modal-backdrop {
+      display: none !important;
+    }
+    .simple-bar-container {
+      display: none;
+      width: 100vw;
+      height: 100vh;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      background: #111317;
+      border: 1px solid #2a2e3b;
+      border-radius: 8px;
+      padding: 0 8px;
+      box-sizing: border-box;
+      -webkit-app-region: drag;
+      user-select: none;
+    }
+    body.simple-mode .simple-bar-container {
+      display: flex;
+    }
+    .simple-pills-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      -webkit-app-region: drag;
+    }
+    .simple-actions {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      -webkit-app-region: no-drag;
+    }
+    .simple-toggle-btn {
+      width: 24px;
+      height: 24px;
+      border-radius: 5px;
+      border: 1px solid #2f3442;
+      background: #1c1e26;
+      color: #8f96a3;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 700;
+      transition: all 0.15s;
+    }
+    .simple-toggle-btn:hover {
+      background: #272b38;
+      color: #fff;
+    }
+    .simple-toggle-btn.simple-close-btn:hover {
+      background: #e81123;
+      color: #fff;
+      border-color: #e81123;
     }
 
     .header-right {
@@ -706,11 +811,30 @@
     </div>
 
     <div class="header-right">
+      <button class="btn-simple-toggle" onclick="toggleSimpleMode()" title="Beralih ke Mode Simple (Hanya muncul 2 kotak sinyal di taskbar)">🗗 Mode Simple</button>
       <div class="win-btn" onclick="winMin()">&#8722;</div>
       <div class="win-btn" onclick="winMax()">&#9633;</div>
       <div class="win-btn close" onclick="winClose()">&#10005;</div>
     </div>
   </header>
+
+  <!-- Ultra-Compact Simple Mode Bar (Pinned near Windows Taskbar) -->
+  <div class="simple-bar-container" id="simpleModeBar">
+    <div class="simple-pills-row">
+      <div class="pill-buy-stat" id="simpleBuyPill" title="Sinyal BUY Terpenuhi (Aktif / Total Sesi)">
+        <span style="font-weight:800;">▲ BUY:</span>
+        <strong id="simpleBuyCount" style="font-size:12px; font-weight:800;">0 (Tot: 0)</strong>
+      </div>
+      <div class="pill-sell-stat" id="simpleSellPill" title="Sinyal SELL Terpenuhi (Aktif / Total Sesi)">
+        <span style="font-weight:800;">▼ SELL:</span>
+        <strong id="simpleSellCount" style="font-size:12px; font-weight:800;">0 (Tot: 0)</strong>
+      </div>
+    </div>
+    <div class="simple-actions">
+      <button class="simple-toggle-btn" onclick="toggleSimpleMode()" title="Kembali ke Mode Penuh Matrix (Restore Window)">⤢</button>
+      <button class="simple-toggle-btn simple-close-btn" onclick="winClose()" title="Tutup Aplikasi">✕</button>
+    </div>
+  </div>
 
   <!-- Filter & Action Strip -->
   <div class="filter-bar">
@@ -978,6 +1102,25 @@
       if (e.key === 'Escape') closeModalDirect();
     });
 
+    let isSimpleMode = false;
+
+    async function toggleSimpleMode() {
+      isSimpleMode = !isSimpleMode;
+      if (isSimpleMode) {
+        document.body.classList.add('simple-mode');
+      } else {
+        document.body.classList.remove('simple-mode');
+      }
+
+      if (window.pywebview && window.pywebview.api && window.pywebview.api.toggle_simple_mode) {
+        try {
+          await window.pywebview.api.toggle_simple_mode(isSimpleMode);
+        } catch (e) {
+          console.error("Error invoking toggle_simple_mode:", e);
+        }
+      }
+    }
+
     async function syncState() {
       try {
         if (window.pywebview && window.pywebview.api) {
@@ -1007,10 +1150,22 @@
             const totBuy = state.stats.total_buy || 0;
             const totSell = state.stats.total_sell || 0;
 
+            const buyText = `${buyCnt} (Tot: ${totBuy})`;
+            const sellText = `${sellCnt} (Tot: ${totSell})`;
+
             const buyEl = document.getElementById('headerBuyCount');
             const sellEl = document.getElementById('headerSellCount');
-            if (buyEl) buyEl.innerText = `${buyCnt} (Tot: ${totBuy})`;
-            if (sellEl) sellEl.innerText = `${sellCnt} (Tot: ${totSell})`;
+            if (buyEl) buyEl.innerText = buyText;
+            if (sellEl) sellEl.innerText = sellText;
+
+            const sBuyEl = document.getElementById('simpleBuyCount');
+            const sSellEl = document.getElementById('simpleSellCount');
+            if (sBuyEl) sBuyEl.innerText = buyText;
+            if (sSellEl) sSellEl.innerText = sellText;
+
+            if (window.pywebview.api.update_taskbar_title) {
+              window.pywebview.api.update_taskbar_title(`▲ BUY: ${buyText}`, `▼ SELL: ${sellText}`);
+            }
 
             const bAll = document.getElementById('btnFilterAll');
             const bBuy = document.getElementById('btnFilterBuy');

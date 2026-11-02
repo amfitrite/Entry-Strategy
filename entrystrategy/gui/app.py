@@ -146,6 +146,81 @@ class MatrixWindowAPI:
         res = self._service.clear_signals()
         return json.dumps(res)
 
+    def toggle_simple_mode(self, is_simple: bool) -> bool:
+        """Toggles between Full Matrix Window and Mini Simple Mode pinned near taskbar."""
+        if not self._window:
+            return False
+
+        try:
+            if is_simple:
+                # Save previous geometry
+                self._prev_width = getattr(self._window, "width", 1200)
+                self._prev_height = getattr(self._window, "height", 750)
+                self._prev_x = getattr(self._window, "x", 100)
+                self._prev_y = getattr(self._window, "y", 100)
+
+                target_w = 345
+                target_h = 44
+                target_x = 100
+                target_y = 100
+
+                if sys.platform == "win32":
+                    import ctypes.wintypes
+                    work_area = ctypes.wintypes.RECT()
+                    ctypes.windll.user32.SystemParametersInfoW(0x0030, 0, ctypes.byref(work_area), 0)
+                    # Position at bottom-right right above taskbar
+                    target_x = max(10, work_area.right - target_w - 20)
+                    target_y = max(10, work_area.bottom - target_h - 10)
+
+                self._window.resize(target_w, target_h)
+                self._window.move(target_x, target_y)
+                self._window.on_top = True
+
+                if sys.platform == "win32":
+                    pid = os.getpid()
+                    def enum_cb(hwnd, _):
+                        p = ctypes.c_ulong()
+                        ctypes.windll.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(p))
+                        if p.value == pid and ctypes.windll.user32.IsWindowVisible(hwnd):
+                            HWND_TOPMOST = -1
+                            SWP_SHOWWINDOW = 0x0040
+                            ctypes.windll.user32.SetWindowPos(hwnd, HWND_TOPMOST, target_x, target_y, target_w, target_h, SWP_SHOWWINDOW)
+                        return True
+                    WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_int, ctypes.c_int)
+                    ctypes.windll.user32.EnumWindows(WNDENUMPROC(enum_cb), 0)
+                return True
+            else:
+                prev_w = max(1000, getattr(self, "_prev_width", 1200))
+                prev_h = max(650, getattr(self, "_prev_height", 750))
+                prev_x = max(0, getattr(self, "_prev_x", 100))
+                prev_y = max(0, getattr(self, "_prev_y", 100))
+
+                self._window.on_top = False
+                self._window.resize(prev_w, prev_h)
+                self._window.move(prev_x, prev_y)
+
+                if sys.platform == "win32":
+                    pid = os.getpid()
+                    def enum_cb(hwnd, _):
+                        p = ctypes.c_ulong()
+                        ctypes.windll.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(p))
+                        if p.value == pid and ctypes.windll.user32.IsWindowVisible(hwnd):
+                            HWND_NOTOPMOST = -2
+                            SWP_SHOWWINDOW = 0x0040
+                            ctypes.windll.user32.SetWindowPos(hwnd, HWND_NOTOPMOST, prev_x, prev_y, prev_w, prev_h, SWP_SHOWWINDOW)
+                        return True
+                    WNDENUMPROC = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_int, ctypes.c_int)
+                    ctypes.windll.user32.EnumWindows(WNDENUMPROC(enum_cb), 0)
+                return False
+        except Exception as e:
+            logger.error(f"Error toggling simple mode: {e}")
+            return False
+
+    def update_taskbar_title(self, buy_str: str, sell_str: str):
+        """Dynamically updates window title so Windows Taskbar previews show live signal totals."""
+        if self._window:
+            self._window.title = f"{buy_str} | {sell_str} - Entry Strategy Matrix"
+
 
 def launch_gui(service: Optional[EntryStrategyService] = None):
     """Launches single-window frameless app."""
@@ -161,7 +236,7 @@ def launch_gui(service: Optional[EntryStrategyService] = None):
         height=entry_service.config.window_height,
         frameless=entry_service.config.frameless,
         resizable=True,
-        min_size=(1000, 600),
+        min_size=(250, 36),
         js_api=api,
     )
     api.set_window(window)
