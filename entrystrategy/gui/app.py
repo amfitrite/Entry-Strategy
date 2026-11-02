@@ -17,8 +17,10 @@ logger = logging.getLogger("EntryStrategy.GUI")
 if sys.platform == "win32":
     import ctypes.wintypes
 
-    user32 = ctypes.windll.user32
-    shell32 = ctypes.windll.shell32
+    # Use isolated WinDLL instance so we NEVER mutate the global ctypes.windll.user32
+    # which is shared by third-party GUI packages like pywebview / winforms.
+    user32 = ctypes.WinDLL("user32")
+    shell32 = ctypes.WinDLL("shell32")
 
     try:
         myappid = "EntryStrategy.PatternMatrix.v1.0"
@@ -26,7 +28,7 @@ if sys.platform == "win32":
     except Exception as e:
         logger.debug(f"Could not set AppUserModelID: {e}")
 
-    # Correct 64-bit and 32-bit Win32 Callback Definitions
+    # Correct 64-bit and 32-bit Win32 Callback Definitions on isolated DLL
     WNDENUMPROC = ctypes.WINFUNCTYPE(
         ctypes.wintypes.BOOL,
         ctypes.wintypes.HWND,
@@ -49,6 +51,8 @@ if sys.platform == "win32":
         ctypes.wintypes.UINT,
     ]
     user32.SetWindowPos.restype = ctypes.wintypes.BOOL
+    user32.GetWindowRect.argtypes = [ctypes.wintypes.HWND, ctypes.POINTER(ctypes.wintypes.RECT)]
+    user32.GetWindowRect.restype = ctypes.wintypes.BOOL
 
     class MONITORINFO(ctypes.Structure):
         _fields_ = [
@@ -244,30 +248,42 @@ class MatrixWindowAPI:
 
             if requested_state:
                 # Entering Simple Mode: Record EXACT user geometry before shrinking
-                cur_w = int(getattr(self._window, "width", 1200))
-                cur_h = int(getattr(self._window, "height", 750))
-                cur_x = int(getattr(self._window, "x", 100))
-                cur_y = int(getattr(self._window, "y", 100))
-                self._prev_rect = (cur_x, cur_y, cur_w, cur_h)
+                if sys.platform == "win32" and hwnd:
+                    rect = ctypes.wintypes.RECT()
+                    if user32.GetWindowRect(hwnd, ctypes.byref(rect)):
+                        self._prev_rect = (rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top)
+                    else:
+                        cur_w = int(getattr(self._window, "width", 1200))
+                        cur_h = int(getattr(self._window, "height", 750))
+                        cur_x = int(getattr(self._window, "x", 100))
+                        cur_y = int(getattr(self._window, "y", 100))
+                        self._prev_rect = (cur_x, cur_y, cur_w, cur_h)
+                else:
+                    cur_w = int(getattr(self._window, "width", 1200))
+                    cur_h = int(getattr(self._window, "height", 750))
+                    cur_x = int(getattr(self._window, "x", 100))
+                    cur_y = int(getattr(self._window, "y", 100))
+                    self._prev_rect = (cur_x, cur_y, cur_w, cur_h)
 
                 # Query specific monitor work area & DPI scaling for the monitor holding this window
                 (w_left, w_top, w_right, w_bottom), scale = _get_monitor_work_area_and_dpi(hwnd)
 
                 target_w = int(350 * scale)
-                target_h = int(46 * scale)
+                target_h = int(48 * scale)
 
                 # Dock near bottom right, right above the taskbar of THAT monitor
                 target_x = max(w_left + 10, w_right - target_w - int(16 * scale))
                 target_y = max(w_top + 10, w_bottom - target_h - int(10 * scale))
 
-                self._window.resize(target_w, target_h)
-                self._window.move(target_x, target_y)
                 self._window.on_top = True
 
                 if sys.platform == "win32" and hwnd:
-                    HWND_TOPMOST = -1
+                    HWND_TOPMOST = ctypes.wintypes.HWND(-1)
                     SWP_SHOWWINDOW = 0x0040
                     user32.SetWindowPos(hwnd, HWND_TOPMOST, target_x, target_y, target_w, target_h, SWP_SHOWWINDOW)
+                else:
+                    self._window.resize(target_w, target_h)
+                    self._window.move(target_x, target_y)
 
                 self._is_simple_mode = True
                 return json.dumps({"success": True, "is_simple": True})
@@ -280,13 +296,14 @@ class MatrixWindowAPI:
                     rx, ry, rw, rh = 100, 100, 1200, 750
 
                 self._window.on_top = False
-                self._window.resize(max(400, rw), max(300, rh))
-                self._window.move(rx, ry)
 
                 if sys.platform == "win32" and hwnd:
-                    HWND_NOTOPMOST = -2
+                    HWND_NOTOPMOST = ctypes.wintypes.HWND(-2)
                     SWP_SHOWWINDOW = 0x0040
                     user32.SetWindowPos(hwnd, HWND_NOTOPMOST, rx, ry, rw, rh, SWP_SHOWWINDOW)
+                else:
+                    self._window.resize(max(400, rw), max(300, rh))
+                    self._window.move(rx, ry)
 
                 self._is_simple_mode = False
                 return json.dumps({"success": True, "is_simple": False})
