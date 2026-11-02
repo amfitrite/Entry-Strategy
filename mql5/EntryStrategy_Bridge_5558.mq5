@@ -4,18 +4,20 @@
 //+------------------------------------------------------------------+
 #property copyright "Entry Strategy Matrix"
 #property link      ""
-#property version   "1.01"
+#property version   "1.02"
 #property description "Streams MT5 real-time ticks to Entry Strategy App on Port 5558"
 
 input string InpHost = "127.0.0.1";
 input int    InpPort = 5558;
 
-int client_socket = INVALID_HANDLE;
+int  client_socket = INVALID_HANDLE;
 bool meta_sent = false;
+bool is_connecting = false;
+datetime last_retry_time = 0;
 
 int OnInit()
 {
-    Print("[EntryStrategy] Initializing Bridge on port ", InpPort, "...");
+    Print("[EntryStrategy] Initializing Bridge on port ", InpPort, " for symbol ", _Symbol, "...");
     ConnectSocket();
     return(INIT_SUCCEEDED);
 }
@@ -30,8 +32,11 @@ void OnDeinit(const int reason)
     }
 }
 
-void ConnectSocket()
+bool ConnectSocket()
 {
+    if(is_connecting) return false;
+    is_connecting = true;
+
     if(client_socket != INVALID_HANDLE)
     {
         SocketClose(client_socket);
@@ -42,40 +47,53 @@ void ConnectSocket()
     if(client_socket == INVALID_HANDLE)
     {
         Print("[EntryStrategy] Failed to create socket. Error: ", GetLastError());
-        return;
+        is_connecting = false;
+        return false;
     }
     
     if(SocketConnect(client_socket, InpHost, InpPort, 1000))
     {
-        Print("[EntryStrategy] Connected successfully to port ", InpPort);
+        Print("[EntryStrategy] Connected successfully to port ", InpPort, " (Symbol: ", _Symbol, ")");
         meta_sent = false;
+        is_connecting = false;
         SendMeta();
+        return true;
     }
     else
     {
         // App might not be running yet, will retry on subsequent ticks
         SocketClose(client_socket);
         client_socket = INVALID_HANDLE;
+        is_connecting = false;
+        return false;
     }
 }
 
-void SendRawString(string data)
+bool SendRawString(string data)
 {
     if(client_socket == INVALID_HANDLE)
     {
-        ConnectSocket();
-        if(client_socket == INVALID_HANDLE) return;
+        datetime now = TimeCurrent();
+        if(now - last_retry_time < 3) return false;
+        last_retry_time = now;
+        if(!ConnectSocket()) return false;
     }
 
     uchar buffer[];
-    StringToCharArray(data, buffer, 0, StringLen(data));
-    int sent = SocketSend(client_socket, buffer, ArraySize(buffer));
+    int len = StringLen(data);
+    if(len <= 0) return true;
+
+    StringToCharArray(data, buffer, 0, len);
+    // Crucial: send exactly 'len' bytes without the trailing null byte
+    int sent = SocketSend(client_socket, buffer, len);
     if(sent < 0)
     {
-        Print("[EntryStrategy] Socket send failed. Reconnecting...");
+        Print("[EntryStrategy] Socket send failed. Error: ", GetLastError(), ". Reconnecting...");
         SocketClose(client_socket);
         client_socket = INVALID_HANDLE;
+        return false;
     }
+    return true;
 }
 
 void SendMeta()
@@ -98,7 +116,12 @@ void OnTick()
 
     if(!meta_sent || client_socket == INVALID_HANDLE)
     {
-        ConnectSocket();
+        datetime now = TimeCurrent();
+        if(now - last_retry_time >= 3)
+        {
+            last_retry_time = now;
+            ConnectSocket();
+        }
         if(client_socket == INVALID_HANDLE) return;
     }
 

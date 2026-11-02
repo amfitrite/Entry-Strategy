@@ -8,7 +8,7 @@ from entrystrategy.config import AppConfig
 from entrystrategy.core.models import TickData, Candle, EntrySignal, SignalDirection
 from entrystrategy.core.buffer import MarketBuffer
 from entrystrategy.engine.registry import PatternRegistry
-from entrystrategy.data.mt5_bridge import MT5BridgeServer
+from entrystrategy.data.mt5_bridge import MT5BridgeServer, MT5NativePoller, MT5_PACKAGE_AVAILABLE
 from entrystrategy.data.simulator import MarketSimulator
 
 logger = logging.getLogger("EntryStrategy.Service")
@@ -29,7 +29,7 @@ class EntryStrategyService:
         self.total_sell_signals: int = 0
         self._lock = threading.Lock()
         
-        # Bridge Server
+        # Bridge Server (TCP Port 5558 for incoming EA streams)
         self.bridge_server = MT5BridgeServer(
             host=self.config.bridge_host,
             port=self.config.bridge_port,
@@ -37,8 +37,16 @@ class EntryStrategyService:
             on_bar_completed=self._on_bar_completed,
             on_status_change=self._on_bridge_status_changed,
         )
+
+        # MT5 Native Direct Poller (Direct terminal API polling with auto-symbol discovery)
+        self.native_poller = MT5NativePoller(
+            preferred_symbol=self.config.symbol,
+            on_tick=self._on_tick_received,
+            on_bar_completed=self._on_bar_completed,
+            on_status_change=self._on_native_status_changed,
+        )
         
-        # Simulator
+        # Simulator (Fallback when no live MT5 is available)
         self.simulator = MarketSimulator(
             base_price=self.config.sim_base_price,
             interval_ms=self.config.sim_tick_interval_ms,
@@ -57,16 +65,20 @@ class EntryStrategyService:
 
     def start(self):
         self.bridge_server.start()
-        if self.config.enable_simulation:
-            logger.info("Starting initial background simulator...")
+        if MT5_PACKAGE_AVAILABLE:
+            self.native_poller.start()
+        if self.config.enable_simulation and not self.bridge_connected:
+            logger.info("Starting background simulator (fallback)...")
             self.simulator.start()
 
     def stop(self):
         self.simulator.stop()
         self.bridge_server.stop()
+        if hasattr(self, "native_poller"):
+            self.native_poller.stop()
 
-    def _on_tick_received(self, tick: TickData):
-        # Real tick from MT5 EA Bridge
+    def _on_tick_received(self, tick: TickData, is_history: bool = False):
+        # Real tick from MT5 (EA Bridge or Native Direct)
         if not self.bridge_connected:
             self.bridge_connected = True
             # Stop simulator when real MT5 arrives
@@ -76,7 +88,10 @@ class EntryStrategyService:
         self.latest_spread = tick.spread
         self.symbol = tick.symbol
         self.buffer.add_tick(tick)
-        self._evaluate_patterns()
+
+        # Do not fire 5000 pattern evaluations for historical catch-up ticks
+        if not is_history:
+            self._evaluate_patterns()
 
     def _on_bar_completed(self, candle: Candle):
         self.buffer.add_completed_candle(candle)
@@ -95,11 +110,27 @@ class EntryStrategyService:
             self._evaluate_patterns()
 
     def _on_bridge_status_changed(self, connected: bool, message: str):
-        self.bridge_connected = connected
-        self.bridge_status_text = message
-        if not connected and self.config.enable_simulation:
-            # Fall back to simulator if MT5 disconnects
-            self.simulator.start()
+        if connected:
+            self.bridge_connected = True
+            self.bridge_status_text = message
+            self.simulator.stop()
+        elif not (hasattr(self, "native_poller") and self.native_poller.connected):
+            self.bridge_connected = False
+            self.bridge_status_text = f"Listening on port {self.config.bridge_port}"
+            if self.config.enable_simulation:
+                self.simulator.start()
+
+    def _on_native_status_changed(self, connected: bool, message: str, symbol: str):
+        if connected:
+            self.bridge_connected = True
+            self.bridge_status_text = message
+            self.symbol = symbol
+            self.simulator.stop()
+        elif not self.bridge_server.client_connected:
+            self.bridge_connected = False
+            self.bridge_status_text = f"Listening on port {self.config.bridge_port}"
+            if self.config.enable_simulation:
+                self.simulator.start()
 
     def _update_all_lifecycles(self, current_price: float, current_ts_ms: int, spread: float = 0.0):
         """Updates lifecycle state (ACTIVE -> PENDING_CONFIRMATION -> CONFIRMED / INVALIDATED / EXPIRED)
@@ -193,6 +224,16 @@ class EntryStrategyService:
             active_buy = sum(1 for c in pattern_cards if c["active"] and c["direction"] == "BUY" and c["status"] in ("ACTIVE", "PENDING_CONFIRMATION", "CONFIRMED"))
             active_sell = sum(1 for c in pattern_cards if c["active"] and c["direction"] == "SELL" and c["status"] in ("ACTIVE", "PENDING_CONFIRMATION", "CONFIRMED"))
 
+            tps_val = self.bridge_server.ticks_last_sec
+            if tps_val == 0 and hasattr(self, "native_poller"):
+                tps_val = self.native_poller.ticks_last_sec
+
+            tot_ticks = self.bridge_server.total_ticks
+            if hasattr(self, "native_poller") and self.native_poller.total_ticks > tot_ticks:
+                tot_ticks = self.native_poller.total_ticks
+            if not self.bridge_connected:
+                tot_ticks = self.buffer.total_ticks
+
             return {
                 "bridge": {
                     "connected": self.bridge_connected,
@@ -201,8 +242,8 @@ class EntryStrategyService:
                     "symbol": self.symbol,
                     "price": round(self.latest_price, 2),
                     "spread": round(self.latest_spread, 2),
-                    "tps": self.bridge_server.ticks_last_sec,
-                    "total_ticks": self.bridge_server.total_ticks if self.bridge_connected else self.buffer.total_ticks,
+                    "tps": tps_val,
+                    "total_ticks": tot_ticks,
                 },
                 "stats": {
                     "active_buy": active_buy,
