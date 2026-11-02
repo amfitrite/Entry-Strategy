@@ -236,6 +236,14 @@ class MatrixWindowAPI:
         res = self._service.clear_signals()
         return json.dumps(res)
 
+    def set_timeframe(self, tf: str) -> str:
+        res = self._service.set_timeframe(tf)
+        return json.dumps(res)
+
+    def toggle_ticks_mode(self, enabled: Optional[bool] = None) -> str:
+        res = self._service.toggle_ticks_mode(enabled)
+        return json.dumps(res)
+
     def toggle_simple_mode(self, requested_state: bool) -> str:
         """Toggles between Full Matrix Window and Mini Simple Mode pinned near taskbar.
         Returns a verified JSON confirmation so frontend DOM only updates on confirmed success.

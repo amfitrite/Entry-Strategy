@@ -157,6 +157,70 @@
       border-color: #4f566b;
     }
 
+    /* Timeframe Selector Pill Group */
+    .tf-pill-container {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 2px 5px;
+      background: #17181c;
+      border: 1px solid #2d3038;
+      border-radius: 8px;
+    }
+    .btn-tf {
+      background: transparent;
+      border: 1px solid transparent;
+      color: #94a3b8;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 2px 7px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .btn-tf:hover {
+      color: #fff;
+      background: #252831;
+    }
+    .btn-tf.active {
+      background: #1e293b;
+      color: #38bdf8;
+      border-color: #0284c7;
+      box-shadow: 0 0 6px rgba(56, 189, 248, 0.25);
+    }
+
+    /* Tick Analysis Mode Toggle */
+    .btn-ticks-toggle {
+      background: #17181c;
+      border: 1px solid #2d3038;
+      color: #94a3b8;
+      font-size: 11px;
+      font-weight: 800;
+      padding: 3px 9px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.15s;
+    }
+    .btn-ticks-toggle:hover {
+      background: #22252c;
+      color: #fff;
+    }
+    .btn-ticks-toggle.active {
+      background: #0d281d;
+      color: #00e676;
+      border-color: #1a5e3a;
+      box-shadow: 0 0 6px rgba(0, 230, 118, 0.2);
+    }
+    .btn-ticks-toggle.disabled-mode {
+      background: #1e2026;
+      color: #64748b;
+      border-color: #333846;
+      opacity: 0.85;
+    }
+
     /* --- Simple Mode (Compact Taskbar Mini-Bar) --- */
     body.simple-mode {
       background: #111317 !important;
@@ -840,6 +904,19 @@
         <strong id="tpsText" style="color:#fff;">0 t/s</strong>
       </div>
 
+      <!-- Timeframe Switcher: M1 and M5 (Default M5) -->
+      <div class="tf-pill-container" title="Pilih Timeframe Analisis Candle (M1 / M5)">
+        <span style="color:#94a3b8; font-size:10.5px; font-weight:800; margin-left:3px; margin-right:2px;">TF:</span>
+        <button class="btn-tf" id="btnTfM1" onclick="selectTimeframe('M1')">M1</button>
+        <button class="btn-tf active" id="btnTfM5" onclick="selectTimeframe('M5')">M5</button>
+      </div>
+
+      <!-- Option to Disable Ticks Mode -->
+      <button class="btn-ticks-toggle active" id="btnTicksToggle" onclick="toggleTicksMode()" title="Toggle Analisis Pola Ticks (Aktif / Nonaktif)">
+        <span id="ticksToggleIcon">⚡</span>
+        <span id="ticksToggleText">TICKS: ON</span>
+      </button>
+
       <!-- Live Signal Counters in Menu Bar -->
       <div class="pill pill-buy-stat" title="Sinyal BUY Terpenuhi (Aktif / Total Sesi)">
         <span style="font-weight:800;">▲ BUY:</span>
@@ -1199,6 +1276,28 @@
     let isSimpleMode = false;
     let isToggling = false;
 
+    async function selectTimeframe(tf) {
+      try {
+        if (window.pywebview && window.pywebview.api && window.pywebview.api.set_timeframe) {
+          await window.pywebview.api.set_timeframe(tf);
+          syncState();
+        }
+      } catch (e) {
+        console.error("Error setting timeframe:", e);
+      }
+    }
+
+    async function toggleTicksMode() {
+      try {
+        if (window.pywebview && window.pywebview.api && window.pywebview.api.toggle_ticks_mode) {
+          await window.pywebview.api.toggle_ticks_mode();
+          syncState();
+        }
+      } catch (e) {
+        console.error("Error toggling ticks mode:", e);
+      }
+    }
+
     async function toggleSimpleMode() {
       if (isToggling) return;
       isToggling = true;
@@ -1281,6 +1380,39 @@
             if (bAll) bAll.innerText = `Semua Sinyal (${buyCnt + sellCnt})`;
             if (bBuy) bBuy.innerText = `BUY Saja (${buyCnt})`;
             if (bSell) bSell.innerText = `SELL Saja (${sellCnt})`;
+          }
+
+          if (state && state.config) {
+            const tf = state.config.timeframe || 'M5';
+            const btnM1 = document.getElementById('btnTfM1');
+            const btnM5 = document.getElementById('btnTfM5');
+            if (btnM1 && btnM5) {
+              if (tf === 'M1') {
+                btnM1.classList.add('active');
+                btnM5.classList.remove('active');
+              } else {
+                btnM5.classList.add('active');
+                btnM1.classList.remove('active');
+              }
+            }
+
+            const enableTicks = state.config.enable_ticks !== false;
+            const btnTicks = document.getElementById('btnTicksToggle');
+            const txtTicks = document.getElementById('ticksToggleText');
+            const iconTicks = document.getElementById('ticksToggleIcon');
+            if (btnTicks && txtTicks) {
+              if (enableTicks) {
+                btnTicks.classList.add('active');
+                btnTicks.classList.remove('disabled');
+                txtTicks.innerText = 'TICKS: ON';
+                if (iconTicks) iconTicks.innerText = '⚡';
+              } else {
+                btnTicks.classList.remove('active');
+                btnTicks.classList.add('disabled');
+                txtTicks.innerText = 'TICKS: OFF';
+                if (iconTicks) iconTicks.innerText = '⚪';
+              }
+            }
           }
 
           if (state && state.patterns) {

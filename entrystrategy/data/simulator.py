@@ -44,10 +44,12 @@ class MarketSimulator:
             self.thread.join(timeout=1.0)
 
     def _seed_initial_bars(self):
-        """Pre-populate 20 historical bars so candle patterns have context immediately."""
+        """Pre-populate historical bars for both M1 and M5 so candle patterns have context immediately."""
         now = datetime.now(timezone.utc)
+        
+        # 1. Seed M1 bars
         px = self.base_price - 3.0
-        for i in range(20, 0, -1):
+        for i in range(25, 0, -1):
             dt = now - timedelta(minutes=i)
             o = px
             rng = random.uniform(0.6, 2.2)
@@ -55,7 +57,7 @@ class MarketSimulator:
             c = o + (direction * random.uniform(0.2, rng))
             h = max(o, c) + random.uniform(0.05, 0.4)
             l = min(o, c) - random.uniform(0.05, 0.4)
-            candle = Candle(
+            candle_m1 = Candle(
                 timestamp=dt,
                 open=round(o, 2),
                 high=round(h, 2),
@@ -68,8 +70,35 @@ class MarketSimulator:
                 is_closed=True,
             )
             if self.on_bar:
-                self.on_bar(candle)
+                self.on_bar(candle_m1)
             px = c
+
+        # 2. Seed M5 bars (Default Timeframe)
+        px_m5 = self.base_price - 6.0
+        for i in range(25, 0, -1):
+            dt_m5 = now - timedelta(minutes=i * 5)
+            o = px_m5
+            rng = random.uniform(1.2, 4.0)
+            direction = random.choice([1, -1, 1])
+            c = o + (direction * random.uniform(0.4, rng))
+            h = max(o, c) + random.uniform(0.1, 0.8)
+            l = min(o, c) - random.uniform(0.1, 0.8)
+            candle_m5 = Candle(
+                timestamp=dt_m5,
+                open=round(o, 2),
+                high=round(h, 2),
+                low=round(l, 2),
+                close=round(c, 2),
+                tick_volume=random.randint(250, 1000),
+                spread=1.4,
+                symbol="XAUUSD",
+                timeframe="M5",
+                is_closed=True,
+            )
+            if self.on_bar:
+                self.on_bar(candle_m5)
+            px_m5 = c
+
         self.current_px = px
         self.bar_start_px = px
         self.bar_high = px
@@ -106,7 +135,7 @@ class MarketSimulator:
 
             # Check minute roll
             if now_dt.minute != self.current_bar_min:
-                completed = Candle(
+                completed_m1 = Candle(
                     timestamp=now_dt.replace(second=0, microsecond=0) - timedelta(minutes=1),
                     open=round(self.bar_start_px, 2),
                     high=round(self.bar_high, 2),
@@ -119,7 +148,24 @@ class MarketSimulator:
                     is_closed=True,
                 )
                 if self.on_bar:
-                    self.on_bar(completed)
+                    self.on_bar(completed_m1)
+
+                # Check 5-minute roll
+                if now_dt.minute % 5 == 0:
+                    completed_m5 = Candle(
+                        timestamp=now_dt.replace(second=0, microsecond=0) - timedelta(minutes=5),
+                        open=round(self.bar_start_px, 2),
+                        high=round(self.bar_high, 2),
+                        low=round(self.bar_low, 2),
+                        close=round(self.current_px, 2),
+                        tick_volume=self.bar_ticks * 5,
+                        spread=1.4,
+                        symbol="XAUUSD",
+                        timeframe="M5",
+                        is_closed=True,
+                    )
+                    if self.on_bar:
+                        self.on_bar(completed_m5)
                 
                 self.current_bar_min = now_dt.minute
                 self.bar_start_px = self.current_px

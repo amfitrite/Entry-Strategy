@@ -15,19 +15,24 @@ logger = logging.getLogger("EntryStrategy.Service")
 
 
 class EntryStrategyService:
-    def __init__(self, config: Optional[AppConfig] = None):
+    def __init__(self, config: Optional[AppConfig] = None, start_servers: bool = True):
         self.config = config or AppConfig()
+        self.active_timeframe = getattr(self.config, "timeframe", "M5").upper()
+        self.enable_ticks = getattr(self.config, "enable_ticks", True)
+
         self.buffer = MarketBuffer(
             tick_capacity=self.config.tick_buffer_size,
             candle_capacity=self.config.candle_buffer_size,
+            default_timeframe=self.active_timeframe,
         )
+        self.buffer.enable_ticks = self.enable_ticks
         self.registry = PatternRegistry()
         
         self.recent_signals: deque = deque(maxlen=100)
         self.latest_signals_by_pattern: Dict[int, EntrySignal] = {}
         self.total_buy_signals: int = 0
         self.total_sell_signals: int = 0
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         
         # Bridge Server (TCP Port 5558 for incoming EA streams)
         self.bridge_server = MT5BridgeServer(
@@ -61,7 +66,8 @@ class EntryStrategyService:
         self.latest_spread = 1.4
 
         # Start servers
-        self.start()
+        if start_servers:
+            self.start()
 
     def start(self):
         self.bridge_server.start()
@@ -93,9 +99,10 @@ class EntryStrategyService:
         if not is_history:
             self._evaluate_patterns()
 
-    def _on_bar_completed(self, candle: Candle):
+    def _on_bar_completed(self, candle: Candle, is_history: bool = False):
         self.buffer.add_completed_candle(candle)
-        self._evaluate_patterns()
+        if not is_history:
+            self._evaluate_patterns()
 
     def _on_sim_tick(self, tick: TickData):
         if not self.bridge_connected:
@@ -144,7 +151,7 @@ class EntryStrategyService:
         with self._lock:
             self._update_all_lifecycles(self.latest_price, now_ms, self.latest_spread)
 
-        fired = self.registry.evaluate_all(self.buffer)
+        fired = self.registry.evaluate_all(self.buffer, enable_ticks=self.enable_ticks)
         if fired:
             with self._lock:
                 for sig in fired:
@@ -154,6 +161,41 @@ class EntryStrategyService:
                         self.total_buy_signals += 1
                     elif sig.direction == SignalDirection.SELL:
                         self.total_sell_signals += 1
+
+    def set_timeframe(self, tf: str) -> Dict[str, Any]:
+        """Switches active candle analysis timeframe between M1 and M5."""
+        tf_clean = tf.upper()
+        if tf_clean not in ("M1", "M5"):
+            return {"success": False, "error": f"Unsupported timeframe: {tf}"}
+        with self._lock:
+            self.active_timeframe = tf_clean
+            self.buffer.set_active_timeframe(tf_clean)
+            for p in self.registry.get_all_patterns():
+                p.last_candle_ts = None
+        self._evaluate_patterns()
+        logger.info(f"Switched active timeframe to {self.active_timeframe} (Buffer candles: {self.buffer.total_candles})")
+        return {"success": True, "timeframe": self.active_timeframe, "candle_count": self.buffer.total_candles}
+
+    def toggle_ticks_mode(self, enabled: Optional[bool] = None) -> Dict[str, Any]:
+        """Enables or disables tick-based pattern evaluations."""
+        with self._lock:
+            if enabled is None:
+                self.enable_ticks = not self.enable_ticks
+            else:
+                self.enable_ticks = bool(enabled)
+            self.buffer.enable_ticks = self.enable_ticks
+
+            # If ticks disabled, deactivate any lingering tick pattern signals
+            if not self.enable_ticks:
+                for pid, p in self.registry._patterns.items():
+                    if p.category == "Tick":
+                        sig = self.latest_signals_by_pattern.get(pid)
+                        if sig and sig.is_alive:
+                            sig.status = SignalStatus.EXPIRED
+                            sig.status_reason = "Mode ticks dinonaktifkan"
+        self._evaluate_patterns()
+        logger.info(f"Tick analysis mode set to: {'ENABLED' if self.enable_ticks else 'DISABLED'}")
+        return {"success": True, "enable_ticks": self.enable_ticks}
 
     def get_matrix_state(self) -> Dict[str, Any]:
         """Provides complete state for UI rendering in a single fast JSON packet."""
@@ -176,8 +218,13 @@ class EntryStrategyService:
                 dir_val = "NONE"
                 time_ago_str = "IDLE"
                 px_str = ""
-                
-                if last_sig:
+
+                # If ticks are disabled, mark Tick patterns as DISABLED
+                if not self.enable_ticks and p["category"] == "Tick":
+                    status_str = "DISABLED"
+                    status_reason = "Mode ticks dinonaktifkan"
+                    time_ago_str = "TICKS OFF"
+                elif last_sig:
                     elapsed_sec = max(0.0, (now_ms - last_sig.timestamp_ms) / 1000.0)
                     status_str = last_sig.status.value
                     status_reason = last_sig.status_reason
@@ -242,8 +289,13 @@ class EntryStrategyService:
                     "symbol": self.symbol,
                     "price": round(self.latest_price, 2),
                     "spread": round(self.latest_spread, 2),
-                    "tps": tps_val,
+                    "tps": tps_val if self.enable_ticks else 0,
                     "total_ticks": tot_ticks,
+                },
+                "config": {
+                    "timeframe": self.active_timeframe,
+                    "enable_ticks": self.enable_ticks,
+                    "total_candles": self.buffer.total_candles,
                 },
                 "stats": {
                     "active_buy": active_buy,

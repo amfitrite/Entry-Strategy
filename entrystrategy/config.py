@@ -9,6 +9,8 @@ class AppConfig:
     bridge_host: str = "127.0.0.1"
     bridge_port: int = 5558  # Port 5558 as requested
     symbol: str = "XAUUSD"
+    timeframe: str = "M5"  # Default timeframe M5 (supports M1 and M5)
+    enable_ticks: bool = True  # Toggle for tick-based analysis mode
     
     # Tick & Candle buffers
     tick_buffer_size: int = 2000
