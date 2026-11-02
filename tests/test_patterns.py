@@ -130,7 +130,8 @@ def test_pola_35_three_push_pattern():
     
     for c in [c4, c3, c2, c1, c0]:
         buf.add_completed_candle(c)
-    buf.add_tick(create_mock_tick(int(now.timestamp() * 1000), 2744.3))
+    # Reversal trigger breaks below push 3 base (candle 0 low is 2743.5)
+    buf.add_tick(create_mock_tick(int(now.timestamp() * 1000), 2743.30))
     
     sig = pattern.evaluate(buf)
     assert sig is not None

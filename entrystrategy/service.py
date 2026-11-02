@@ -150,6 +150,8 @@ class EntryStrategyService:
                     "name": p["name"],
                     "category": p["category"],
                     "description": p["description"],
+                    "role": p.get("role", "ENTRY"),
+                    "phenomenon": p.get("phenomenon", ""),
                     "active": is_active,
                     "direction": dir_val,
                     "time_ago": time_ago_str,

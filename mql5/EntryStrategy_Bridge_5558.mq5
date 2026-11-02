@@ -4,7 +4,7 @@
 //+------------------------------------------------------------------+
 #property copyright "Entry Strategy Matrix"
 #property link      ""
-#property version   "1.00"
+#property version   "1.01"
 #property description "Streams MT5 real-time ticks to Entry Strategy App on Port 5558"
 
 input string InpHost = "127.0.0.1";
@@ -26,7 +26,7 @@ void OnDeinit(const int reason)
     {
         SocketClose(client_socket);
         client_socket = INVALID_HANDLE;
-        Print("[EntryStrategy] Socket closed.");
+        Print("[EntryStrategy] Socket closed cleanly.");
     }
 }
 
@@ -53,7 +53,7 @@ void ConnectSocket()
     }
     else
     {
-        // App might not be running yet, will retry on next tick
+        // App might not be running yet, will retry on subsequent ticks
         SocketClose(client_socket);
         client_socket = INVALID_HANDLE;
     }
@@ -82,6 +82,12 @@ void SendMeta()
 {
     string symLine = StringFormat("#SYMBOL:%s\n", _Symbol);
     SendRawString(symLine);
+    
+    int digits = (int)SymbolInfoInteger(_Symbol, SYMBOL_DIGITS);
+    double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+    string metaLine = StringFormat("#META:%d,%f\n", digits, point);
+    SendRawString(metaLine);
+    
     meta_sent = true;
 }
 
@@ -96,13 +102,24 @@ void OnTick()
         if(client_socket == INVALID_HANDLE) return;
     }
 
+    // Ensure valid millisecond timestamp
+    long ts_msc = tick.time_msc;
+    if(ts_msc <= 0)
+    {
+        ts_msc = (long)tick.time * 1000 + (GetMicrosecondCount() % 1000000) / 1000;
+    }
+
+    // High precision volume
+    double vol = tick.volume_real > 0 ? tick.volume_real : (double)tick.volume;
+    if(vol <= 0) vol = 1.0;
+
     // Format: time_msc,bid,ask,last,volume,flags
-    string tickLine = StringFormat("%I64d,%f,%f,%f,%I64d,%d\n",
-        tick.time_msc,
+    string tickLine = StringFormat("%I64d,%.5f,%.5f,%.5f,%.2f,%d\n",
+        ts_msc,
         tick.bid,
         tick.ask,
         tick.last,
-        tick.volume_real > 0 ? (long)tick.volume_real : (long)tick.volume,
+        vol,
         tick.flags
     );
 

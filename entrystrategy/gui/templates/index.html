@@ -557,8 +557,8 @@
       border-radius: 8px;
       padding: 12px 16px;
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 12px;
     }
 
     .summary-item {
@@ -763,17 +763,33 @@
       <div class="modal-body">
         <div class="modal-summary-box">
           <div class="summary-item">
-            <span class="summary-label">Arah Sinyal</span>
-            <span class="summary-val" id="modalDirection">BUY</span>
+            <span class="summary-label">Arah & Klasifikasi</span>
+            <div style="display:flex; align-items:center; gap:6px; margin-top:2px;">
+              <span class="summary-val" id="modalDirection">BUY</span>
+              <span class="modal-category-badge" id="modalRoleBadge" style="background:#222631; color:#8ab4f8; font-size:9.5px; padding:2px 5px;">ENTRY</span>
+            </div>
           </div>
           <div class="summary-item">
-            <span class="summary-label">Harga Entry</span>
+            <span class="summary-label">Trigger Price (Eksekusi)</span>
             <span class="summary-val" id="modalPrice">2745.20</span>
           </div>
           <div class="summary-item">
-            <span class="summary-label">Waktu Trigger</span>
-            <span class="summary-val" id="modalTime">22:58:14.320</span>
+            <span class="summary-label">Reference Price (Anchor)</span>
+            <span class="summary-val" id="modalRefPrice" style="color:#e5c07b;">2744.00</span>
           </div>
+          <div class="summary-item">
+            <span class="summary-label">Level Invalidation</span>
+            <span class="summary-val" id="modalInvalPrice" style="color:#e06c75;">2740.00</span>
+          </div>
+          <div class="summary-item">
+            <span class="summary-label">Waktu Trigger</span>
+            <span class="summary-val" id="modalTime" style="font-size:12px; font-weight:700;">22:58:14.320</span>
+          </div>
+        </div>
+
+        <div class="modal-desc-box" id="modalPhenomenonBox" style="border-left: 3px solid #e5c07b; background:#181612; margin-bottom:-4px;">
+          <div style="color:#e5c07b; font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:3px;">🔬 Fenomena Pasar yang Diukur:</div>
+          <div id="modalPhenomenon" style="color:#f0f0f0; font-size:12px; line-height:1.45;"></div>
         </div>
 
         <div class="modal-desc-box" id="modalDescription">
@@ -917,8 +933,20 @@
       dirEl.innerText = sig.direction;
       dirEl.className = 'summary-val ' + (sig.direction === 'BUY' ? 'buy' : 'sell');
 
-      document.getElementById('modalPrice').innerText = sig.price.toFixed(2);
+      document.getElementById('modalRoleBadge').innerText = sig.pattern_role || p.role || 'ENTRY';
+      document.getElementById('modalPrice').innerText = (sig.trigger_price != null ? sig.trigger_price : sig.price).toFixed(2);
+      document.getElementById('modalRefPrice').innerText = sig.reference_price != null ? sig.reference_price.toFixed(2) : '-';
+      document.getElementById('modalInvalPrice').innerText = sig.invalidation_price != null ? sig.invalidation_price.toFixed(2) : '-';
       document.getElementById('modalTime').innerText = sig.time_str || new Date(sig.timestamp_ms).toLocaleTimeString();
+
+      const phenomBox = document.getElementById('modalPhenomenonBox');
+      const phenomText = sig.phenomenon || p.phenomenon;
+      if (phenomText) {
+        phenomBox.style.display = 'block';
+        document.getElementById('modalPhenomenon').innerText = phenomText;
+      } else {
+        phenomBox.style.display = 'none';
+      }
 
       const listEl = document.getElementById('modalReasonsList');
       if (sig.reasons && sig.reasons.length > 0) {
