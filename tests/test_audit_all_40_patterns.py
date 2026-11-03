@@ -1,6 +1,4 @@
-"""Exhaustive Positive, Negative, and Deduplication Unit Tests for All 40 Patterns.
-Audited and verified in accordance with strict market microstructure definitions.
-"""
+"""Regression tests for the 40 candle-only M1/M5 strategy families."""
 import pytest
 from datetime import datetime, timezone, timedelta
 from entrystrategy.core.models import Candle, TickData, SignalDirection, PatternRole
@@ -403,815 +401,212 @@ def test_pola_39_candle_sequence(registry):
 
 
 # ==============================================================================
-# 2. PURE TICK MICROSTRUCTURE PATTERNS (Pola 11 - 17, 22, 23)
-# ==============================================================================
 
-def test_pola_11_tick_momentum(registry):
-    """Pola 11: Tick Momentum."""
+
+def _latest_first_buffer(rows, timeframe="M5"):
+    """Build a MarketBuffer from OHLC rows ordered newest to oldest."""
+    now = datetime.now(timezone.utc)
+    buf = MarketBuffer(enable_ticks=False, active_timeframe=timeframe)
+    for i, (o, h, l, close) in reversed(list(enumerate(rows))):
+        buf.add_completed_candle(create_candle(now - timedelta(minutes=i), o, h, l, close))
+    return buf
+
+
+def test_candle_only_buffer_never_exposes_ticks_to_strategies():
+    buf = MarketBuffer(enable_ticks=True)
+    now_ms = int(datetime.now(timezone.utc).timestamp() * 1000)
+    for i in range(25):
+        buf.add_tick(create_tick(now_ms + i, 2745.0 + i * 0.05))
+    assert buf.latest_tick is None
+    assert buf.get_recent_ticks(50) == []
+    assert buf.latest_quote_tick is not None  # Quote telemetry remains available for execution pricing.
+
+
+def test_pola_11_choch_requires_confirmed_countertrend_swing_break():
+    registry = PatternRegistry()
     p = registry.get_pattern(11)
-    p.reset()
-    ts = 1700000000000
-    
-    # Positive BUY: >= 0.50 pts shift in <= 2.5s
-    buf_pos = MarketBuffer()
-    for i in range(20):
-        buf_pos.add_tick(create_tick(ts + i * 50, 2745.0 + i * 0.03))  # shift = +0.57 in 0.95s
-    
-    sig = p.check(buf_pos)
+    # Newest first. Confirmed recent LH=98 and LL=92, older LH=101 and LL=95.
+    rows = [
+        (98.6, 100.5, 98.4, 100.3),
+        (96.0, 97.0, 95.6, 96.5),
+        (94.0, 96.5, 92.0, 95.0),
+        (96.0, 98.0, 95.0, 97.5),
+        (95.0, 96.0, 95.5, 95.8),
+        (96.0, 97.0, 95.5, 96.5),
+        (96.5, 97.5, 95.0, 96.0),
+        (99.0, 101.0, 97.0, 100.0),
+        (98.0, 99.0, 96.5, 98.0),
+        (99.0, 100.0, 96.0, 99.0),
+        (98.0, 99.0, 94.0, 95.0),
+        (97.0, 98.0, 95.0, 96.0),
+        (96.0, 97.0, 94.0, 95.0),
+        (95.0, 96.0, 93.0, 94.0),
+        (94.0, 95.0, 92.5, 93.0),
+        (93.0, 94.0, 91.5, 92.0),
+    ]
+    buf = _latest_first_buffer(rows)
+    sig = p.evaluate(buf)
     assert sig is not None
     assert sig.direction == SignalDirection.BUY
-    assert sig.reference_price == 2745.0
-    assert p.check(buf_pos) is None  # Cooldown/event deduplicated
+    assert sig.metrics["prior_trend"] == "BEARISH"
+    assert sig.reference_price == 98.0
 
-    # Negative test: flat ticks (< 0.20 pts)
-    p.reset()
-    buf_neg = MarketBuffer()
-    for i in range(20):
-        buf_neg.add_tick(create_tick(ts + i * 50, 2745.0 + (i % 2) * 0.02))
-    assert p.evaluate(buf_neg) is None
+    # A wick through the protected high without a bullish close is not CHoCH.
+    rows[0] = (98.6, 100.5, 98.4, 97.8)
+    assert p.evaluate(_latest_first_buffer(rows)) is None
 
 
-def test_pola_12_tick_reversal(registry):
-    """Pola 12: Tick Reversal (V-reversal)."""
+def test_pola_12_bos_requires_continuation_of_hh_hl_structure():
+    registry = PatternRegistry()
     p = registry.get_pattern(12)
-    p.reset()
-    ts = 1700000000000
-    
-    # Positive BUY: drop >= 0.40 then rebound >= 0.35
-    buf_pos = MarketBuffer()
-    for i in range(12):
-        buf_pos.add_tick(create_tick(ts + i * 50, 2745.0 - i * 0.04))  # -0.44 pts
-    for i in range(12):
-        buf_pos.add_tick(create_tick(ts + 600 + i * 50, 2744.56 + i * 0.04))  # +0.44 pts
-    
-    sig = p.check(buf_pos)
+    rows = [
+        (104.8, 106.2, 104.6, 106.0),
+        (103.0, 104.0, 101.5, 103.5),
+        (101.0, 103.0, 100.0, 102.0),
+        (103.0, 105.0, 101.0, 104.0),
+        (102.0, 103.0, 101.5, 102.5),
+        (101.5, 102.0, 100.0, 101.5),
+        (100.5, 102.5, 98.0, 101.0),
+        (101.0, 103.0, 99.0, 102.0),
+        (100.0, 102.0, 99.5, 101.0),
+        (100.0, 101.0, 99.0, 100.0),
+        (99.0, 100.0, 97.0, 98.0),
+        (98.0, 99.0, 96.0, 97.0),
+        (97.0, 98.0, 95.0, 96.0),
+        (96.0, 97.0, 94.0, 95.0),
+        (95.0, 96.0, 93.0, 94.0),
+        (94.0, 95.0, 92.0, 93.0),
+    ]
+    sig = p.evaluate(_latest_first_buffer(rows))
     assert sig is not None
     assert sig.direction == SignalDirection.BUY
-    assert p.check(buf_pos) is None
-
-    # Negative test: monotonic drift
-    p.reset()
-    buf_neg = MarketBuffer()
-    for i in range(24):
-        buf_neg.add_tick(create_tick(ts + i * 50, 2745.0 + i * 0.02))
-    assert p.evaluate(buf_neg) is None
+    assert sig.metrics["structure"] == "HH_HL"
 
 
-def test_pola_13_tick_imbalance(registry):
-    """Pola 13: Tick Imbalance (Quote Direction Dominance)."""
+def test_pola_13_displacement_is_closed_candle_only():
+    registry = PatternRegistry()
     p = registry.get_pattern(13)
-    p.reset()
-    ts = 1700000000000
-    
-    # Positive BUY: >= 75% upticks
-    buf_pos = MarketBuffer()
-    px = 2745.0
-    for i in range(21):
-        if i % 6 != 0:
-            px += 0.04
-        else:
-            px -= 0.01
-        buf_pos.add_tick(create_tick(ts + i * 60, round(px, 2)))
-    
-    sig = p.check(buf_pos)
+    now = datetime.now(timezone.utc)
+    buf = MarketBuffer()
+    for i, row in enumerate([
+        (100.0, 104.2, 99.8, 103.8),
+        (99.6, 100.2, 99.3, 99.9),
+        (99.4, 100.0, 99.1, 99.7),
+        (99.5, 100.0, 99.2, 99.8),
+        (99.4, 99.9, 99.1, 99.6),
+    ][::-1]):
+        buf.add_completed_candle(create_candle(now - timedelta(minutes=i), *row))
+    sig = p.evaluate(buf)
     assert sig is not None
     assert sig.direction == SignalDirection.BUY
-    assert sig.pattern_role == PatternRole.CONFIRMATION
-    assert p.check(buf_pos) is None
-
-    # Negative test: 50-50 balance
-    p.reset()
-    buf_neg = MarketBuffer()
-    px = 2745.0
-    for i in range(21):
-        px += 0.02 if i % 2 == 0 else -0.02
-        buf_neg.add_tick(create_tick(ts + i * 60, round(px, 2)))
-    assert p.evaluate(buf_neg) is None
+    assert sig.metrics["body_ratio"] >= 0.65
 
 
-def test_pola_14_tick_burst(registry):
-    """Pola 14: Tick Burst."""
+def test_pola_14_breakout_retest_requires_level_reclaim():
+    registry = PatternRegistry()
     p = registry.get_pattern(14)
-    p.reset()
-    ts = 1700000000000
-    
-    # Positive BUY: 20 ticks in 400ms (50 ticks/sec) and +0.35 pts shift
-    buf_pos = MarketBuffer()
-    for i in range(20):
-        buf_pos.add_tick(create_tick(ts + i * 20, 2745.0 + i * 0.02))
-    
-    sig = p.check(buf_pos)
+    rows = [
+        (99.9, 101.0, 99.8, 100.7),  # retest/hold
+        (99.5, 101.5, 99.4, 101.2),  # confirmed breakout
+    ] + [(98.5, 100.0, 95.0, 99.0)] * 6
+    sig = p.evaluate(_latest_first_buffer(rows))
     assert sig is not None
     assert sig.direction == SignalDirection.BUY
-    assert p.check(buf_pos) is None
-
-    # Negative test: slow arrival (1 tick per second)
-    p.reset()
-    buf_neg = MarketBuffer()
-    for i in range(20):
-        buf_neg.add_tick(create_tick(ts + i * 1000, 2745.0 + i * 0.02))
-    assert p.evaluate(buf_neg) is None
+    assert sig.reference_price == 100.0
 
 
-def test_pola_15_tick_exhaustion(registry):
-    """Pola 15: Tick Exhaustion."""
+def test_pola_15_bullish_fvg_uses_three_candle_imbalance():
+    registry = PatternRegistry()
     p = registry.get_pattern(15)
-    p.reset()
-    ts = 1700000000000
-    
-    # Positive SELL: Fast rally (+0.50), high-rate stall in last 10 ticks (< 0.08 shift), latest tick drops
-    buf_pos = MarketBuffer()
-    for i in range(15):
-        buf_pos.add_tick(create_tick(ts + i * 50, 2745.0 + i * 0.04))  # rally +0.56 pts
-    for i in range(12):
-        buf_pos.add_tick(create_tick(ts + 800 + i * 40, 2745.56 + (i % 2) * 0.02))  # stall
-    # Latest tick turns down
-    buf_pos.add_tick(create_tick(ts + 1350, 2745.50))
-    
-    sig = p.check(buf_pos)
+    rows = [
+        (102.0, 102.6, 101.3, 102.4),  # third candle leaves gap
+        (99.5, 102.0, 99.3, 101.8),    # displacement candle
+        (99.0, 100.0, 98.8, 99.6),     # first candle
+        (99.0, 99.6, 98.9, 99.4),
+        (99.2, 99.7, 99.0, 99.5),
+    ]
+    sig = p.evaluate(_latest_first_buffer(rows))
     assert sig is not None
-    assert sig.direction == SignalDirection.SELL
-    assert sig.pattern_role == PatternRole.SETUP_TRIGGER
-    assert p.check(buf_pos) is None
-
-    # Negative test: strong ongoing breakout (no stall)
-    p.reset()
-    buf_neg = MarketBuffer()
-    for i in range(28):
-        buf_neg.add_tick(create_tick(ts + i * 50, 2745.0 + i * 0.05))
-    assert p.evaluate(buf_neg) is None
+    assert sig.direction == SignalDirection.BUY
+    assert sig.metrics["fvg_size"] > 0.0
 
 
-def test_pola_16_price_velocity(registry):
-    """Pola 16: Price Velocity."""
+def test_pola_16_fvg_retest_requires_touch_and_rejection():
+    registry = PatternRegistry()
     p = registry.get_pattern(16)
-    p.reset()
-    ts = 1700000000000
-    
-    # Positive BUY: velocity >= 0.40 pts/sec
-    buf_pos = MarketBuffer()
-    for i in range(15):
-        buf_pos.add_tick(create_tick(ts + i * 50, 2745.0 + i * 0.04))  # +0.56 in 0.7s = 0.80 pts/s
-    
-    sig = p.check(buf_pos)
+    rows = [
+        (101.0, 101.5, 100.8, 101.3),  # retest
+        (101.5, 102.0, 101.2, 101.6),  # gap remains open before retest
+        (102.0, 102.6, 101.0, 102.4),  # third
+        (99.5, 102.0, 99.3, 101.8),    # middle displacement
+        (99.0, 100.0, 98.8, 99.6),     # first
+        (99.0, 99.6, 98.9, 99.4),
+    ]
+    sig = p.evaluate(_latest_first_buffer(rows))
     assert sig is not None
     assert sig.direction == SignalDirection.BUY
-    assert p.check(buf_pos) is None
-
-    # Negative test: slow drift (0.05 pts/s)
-    p.reset()
-    buf_neg = MarketBuffer()
-    for i in range(15):
-        buf_neg.add_tick(create_tick(ts + i * 200, 2745.0 + i * 0.01))
-    assert p.evaluate(buf_neg) is None
+    assert sig.metrics["retest_low"] <= sig.metrics["fvg_high"]
 
 
-def test_pola_17_price_acceleration(registry):
-    """Pola 17: Price Acceleration."""
+def test_pola_17_order_block_retest_requires_break_and_retest():
+    registry = PatternRegistry()
     p = registry.get_pattern(17)
-    p.reset()
-    ts = 1700000000000
-    
-    # Positive BUY: velocity jumping from slow to fast
-    buf_pos = MarketBuffer()
-    # First half: 10 ticks, slow (+0.05 in 1.0s)
-    for i in range(10):
-        buf_pos.add_tick(create_tick(ts + i * 100, 2745.0 + i * 0.005))
-    # Second half: 10 ticks, fast jump (+0.50 in 0.5s)
-    for i in range(10):
-        buf_pos.add_tick(create_tick(ts + 1000 + i * 50, 2745.05 + i * 0.05))
-    
-    sig = p.check(buf_pos)
+    rows = [
+        (100.5, 102.0, 99.5, 101.5),   # retest and bullish close above OB open
+        (98.5, 103.0, 98.0, 102.5),    # displacement/break
+        (100.0, 101.0, 98.0, 99.0),    # last bearish candle = demand OB
+    ] + [(99.0, 100.0, 98.0, 99.5)] * 5
+    sig = p.evaluate(_latest_first_buffer(rows))
     assert sig is not None
     assert sig.direction == SignalDirection.BUY
-    assert p.check(buf_pos) is None
-
-    # Negative test: constant velocity (no acceleration)
-    p.reset()
-    buf_neg = MarketBuffer()
-    for i in range(20):
-        buf_neg.add_tick(create_tick(ts + i * 100, 2745.0 + i * 0.02))
-    assert p.evaluate(buf_neg) is None
+    assert sig.metrics["ob_low"] < sig.metrics["ob_high"]
 
 
-def test_pola_22_consecutive_price_movement(registry):
-    """Pola 22: Consecutive Price Movement."""
+def test_pola_22_trend_pullback_needs_retracement_and_reclaim():
+    registry = PatternRegistry()
     p = registry.get_pattern(22)
-    p.reset()
-    ts = 1700000000000
-    
-    # Positive BUY: 6 consecutive upticks
-    buf_pos = MarketBuffer()
-    for i in range(10):
-        buf_pos.add_tick(create_tick(ts + i * 50, 2745.0 + i * 0.03))
-    
-    sig = p.check(buf_pos)
+    rows = [
+        (102.0, 104.0, 101.5, 103.5),  # trigger close above pullback high
+        (102.8, 103.0, 100.0, 101.0),  # pullback
+        (101.0, 104.0, 99.0, 103.0),   # impulse
+        (99.0, 102.0, 98.0, 101.5),
+        (96.0, 100.0, 95.0, 99.0),
+        (95.0, 98.0, 94.0, 97.0),
+    ]
+    sig = p.evaluate(_latest_first_buffer(rows))
     assert sig is not None
     assert sig.direction == SignalDirection.BUY
-    assert p.check(buf_pos) is None
-
-    # Negative test: zigzag
-    p.reset()
-    buf_neg = MarketBuffer()
-    for i in range(10):
-        buf_neg.add_tick(create_tick(ts + i * 50, 2745.0 + (i % 2) * 0.02))
-    assert p.evaluate(buf_neg) is None
+    assert 0.25 <= sig.metrics["retracement_ratio"] <= 0.75
 
 
-def test_pola_23_alternating_tick(registry):
-    """Pola 23: Alternating Tick Pattern."""
+def test_pola_23_donchian_breakout_needs_close_outside_range():
+    registry = PatternRegistry()
     p = registry.get_pattern(23)
-    p.reset()
-    ts = 1700000000000
-    
-    # Positive BUY: ping-pong alternating in tight range, then 2 consecutive upticks breaking out
-    buf_pos = MarketBuffer()
-    # Ping-pong: 2745.00, 2745.05, 2745.00, 2745.05, 2745.00, 2745.05
-    for i in range(6):
-        px = 2745.05 if i % 2 == 1 else 2745.00
-        buf_pos.add_tick(create_tick(ts + i * 50, px))
-    # Breakout: 2745.10, 2745.18
-    buf_pos.add_tick(create_tick(ts + 350, 2745.10))
-    buf_pos.add_tick(create_tick(ts + 400, 2745.18))
-    
-    sig = p.check(buf_pos)
+    rows = [(105.0, 107.0, 104.8, 106.8)] + [(102.0, 105.0, 101.0, 103.0)] * 10
+    sig = p.evaluate(_latest_first_buffer(rows))
     assert sig is not None
     assert sig.direction == SignalDirection.BUY
-    assert p.check(buf_pos) is None
+    assert sig.reference_price == 105.0
 
-    # Negative test: still alternating, no breakout
-    p.reset()
-    buf_neg = MarketBuffer()
-    for i in range(8):
-        px = 2745.05 if i % 2 == 1 else 2745.00
-        buf_neg.add_tick(create_tick(ts + i * 50, px))
-    assert p.evaluate(buf_neg) is None
+    # Intrabar wick above range with close back inside does not count.
+    rows[0] = (104.0, 106.0, 103.0, 104.5)
+    assert p.evaluate(_latest_first_buffer(rows)) is None
 
 
-# ==============================================================================
-# 3. HYBRID TICK-CANDLE PATTERNS (Pola 7-10, 18-20, 24, 28-30, 36, 37, 40)
-# ==============================================================================
+def test_all_40_candle_patterns_evaluate_safely_without_tick_input():
+    registry = PatternRegistry()
+    buf = MarketBuffer(enable_ticks=False)
+    for pattern in registry.get_all_patterns():
+        assert pattern.evaluate(buf) is None
 
-def test_pola_07_breakout(registry):
-    """Pola 7: Breakout."""
-    p = registry.get_pattern(7)
-    p.reset()
     now = datetime.now(timezone.utc)
-    
-    # Positive BUY: tick mid > c1.high + 0.10
-    buf_pos = MarketBuffer()
-    c1 = create_candle(now - timedelta(minutes=1), 2740.0, 2745.0, 2739.0, 2744.0)
-    buf_pos.add_completed_candle(c1)
-    buf_pos.add_tick(create_tick(int(now.timestamp() * 1000), 2745.30))
-    
-    sig = p.check(buf_pos)
-    assert sig is not None
-    assert sig.direction == SignalDirection.BUY
-    assert sig.reference_price == 2745.0
-    assert p.check(buf_pos) is None
-
-    # Negative test: tick inside candle
-    p.reset()
-    buf_neg = MarketBuffer()
-    buf_neg.add_completed_candle(c1)
-    buf_neg.add_tick(create_tick(int(now.timestamp() * 1000), 2742.0))
-    assert p.evaluate(buf_neg) is None
-
-
-def test_pola_08_failed_breakout(registry):
-    """Pola 8: Failed Breakout (Trap)."""
-    p = registry.get_pattern(8)
-    p.reset()
-    now = datetime.now(timezone.utc)
-    ts = int(now.timestamp() * 1000)
-    
-    # Positive SELL (Bull trap): probed above c1.high (2745.0), then collapsed to 2744.50
-    buf_pos = MarketBuffer()
-    c1 = create_candle(now - timedelta(minutes=1), 2740.0, 2745.0, 2739.0, 2744.0)
-    buf_pos.add_completed_candle(c1)
-    for i in range(8):
-        buf_pos.add_tick(create_tick(ts + i * 50, 2744.5 + i * 0.10))  # peaks at 2745.20
-    buf_pos.add_tick(create_tick(ts + 500, 2744.70))
-    buf_pos.add_tick(create_tick(ts + 550, 2744.50))
-    
-    sig = p.check(buf_pos)
-    assert sig is not None
-    assert sig.direction == SignalDirection.SELL
-    assert p.check(buf_pos) is None
-
-    # Negative test: clean breakout holding above high
-    p.reset()
-    buf_neg = MarketBuffer()
-    buf_neg.add_completed_candle(c1)
-    for i in range(12):
-        buf_neg.add_tick(create_tick(ts + i * 50, 2745.50 + i * 0.05))
-    assert p.evaluate(buf_neg) is None
-
-
-def test_pola_09_micro_pullback(registry):
-    """Pola 9: Micro Pullback."""
-    p = registry.get_pattern(9)
-    p.reset()
-    now = datetime.now(timezone.utc)
-    ts = int(now.timestamp() * 1000)
-    
-    # Positive BUY: c1 bullish (open 2740, close 2744, mid 2742), ticks retest 2742.0 then bounce to 2742.40
-    buf_pos = MarketBuffer()
-    c1 = create_candle(now - timedelta(minutes=1), 2740.0, 2744.2, 2739.8, 2744.0)
-    buf_pos.add_completed_candle(c1)
-    buf_pos.add_tick(create_tick(ts, 2743.0))
-    buf_pos.add_tick(create_tick(ts + 50, 2742.0))  # touch 50%
-    for i in range(8):
-        buf_pos.add_tick(create_tick(ts + 100 + i * 50, 2742.10 + i * 0.05))  # bounce to 2742.45
-    
-    sig = p.check(buf_pos)
-    assert sig is not None
-    assert sig.direction == SignalDirection.BUY
-    assert p.check(buf_pos) is None
-
-    # Negative test: dump straight through 50% without bounce
-    p.reset()
-    buf_neg = MarketBuffer()
-    buf_neg.add_completed_candle(c1)
-    for i in range(10):
-        buf_neg.add_tick(create_tick(ts + i * 50, 2743.0 - i * 0.40))
-    assert p.evaluate(buf_neg) is None
-
-
-def test_pola_10_micro_trend_reversal(registry):
-    """Pola 10: Micro Trend Reversal."""
-    p = registry.get_pattern(10)
-    p.reset()
-    now = datetime.now(timezone.utc)
-    
-    # Positive BUY: 3 lower highs (c3 > c2 > c1), higher low formed (c1.low > c2.low), tick breaks above c1.high
-    buf_pos = MarketBuffer()
-    c3 = create_candle(now - timedelta(minutes=3), 2746.0, 2748.0, 2743.0, 2744.0)  # high 2748
-    c2 = create_candle(now - timedelta(minutes=2), 2744.0, 2746.0, 2740.0, 2742.0)  # high 2746, low 2740
-    c1 = create_candle(now - timedelta(minutes=1), 2742.0, 2744.0, 2741.0, 2743.5)  # high 2744, higher low 2741
-    for c in [c3, c2, c1]:
-        buf_pos.add_completed_candle(c)
-    buf_pos.add_tick(create_tick(int(now.timestamp() * 1000), 2744.30))  # breaks c1.high
-    
-    sig = p.check(buf_pos)
-    assert sig is not None
-    assert sig.direction == SignalDirection.BUY
-    assert sig.pattern_role == PatternRole.STRUCTURE
-    assert p.check(buf_pos) is None
-
-    # Negative test: no higher low
-    p.reset()
-    buf_neg = MarketBuffer()
-    c1_lower = create_candle(now - timedelta(minutes=1), 2742.0, 2744.0, 2739.0, 2741.0)
-    for c in [c3, c2, c1_lower]:
-        buf_neg.add_completed_candle(c)
-    buf_neg.add_tick(create_tick(int(now.timestamp() * 1000), 2744.30))
-    assert p.evaluate(buf_neg) is None
-
-
-def test_pola_18_micro_range_expansion(registry):
-    """Pola 18: Micro Range Expansion."""
-    p = registry.get_pattern(18)
-    p.reset()
-    now = datetime.now(timezone.utc)
-    ts = int(now.timestamp() * 1000)
-    
-    # Positive BUY: 3 bars avg range 1.0 pts, ticks move 1.6 pts (> 1.3x)
-    buf_pos = MarketBuffer()
-    for i in range(3):
-        buf_pos.add_completed_candle(create_candle(now - timedelta(minutes=3 - i), 2740.0, 2741.0, 2740.0, 2740.8))
-    for i in range(15):
-        buf_pos.add_tick(create_tick(ts + i * 50, 2740.0 + i * 0.11))  # +1.54 pts
-    
-    sig = p.check(buf_pos)
-    assert sig is not None
-    assert sig.direction == SignalDirection.BUY
-    assert p.check(buf_pos) is None
-
-    # Negative test: tiny tick span (< 0.50 pts)
-    p.reset()
-    buf_neg = MarketBuffer()
-    for i in range(3):
-        buf_neg.add_completed_candle(create_candle(now - timedelta(minutes=3 - i), 2740.0, 2742.0, 2740.0, 2741.5))
-    for i in range(15):
-        buf_neg.add_tick(create_tick(ts + i * 50, 2741.0 + (i % 2) * 0.05))
-    assert p.evaluate(buf_neg) is None
-
-
-def test_pola_19_micro_range_compression(registry):
-    """Pola 19: Micro Range Compression."""
-    p = registry.get_pattern(19)
-    p.reset()
-    ts = 1700000000000
-    
-    # Positive BUY: historical 24 ticks compressed in span <= 0.22, 25th tick breaks out
-    buf_pos = MarketBuffer()
-    for i in range(24):
-        buf_pos.add_tick(create_tick(ts + i * 50, 2745.0 + (i % 3) * 0.05))  # high 2745.10, low 2745.00 (span 0.10)
-    # Breakout tick
-    buf_pos.add_tick(create_tick(ts + 1250, 2745.18))
-    
-    sig = p.check(buf_pos)
-    assert sig is not None
-    assert sig.direction == SignalDirection.BUY
-    assert sig.pattern_role == PatternRole.SETUP_TRIGGER
-    assert p.check(buf_pos) is None
-
-    # Negative test: wide volatility (> 0.50 pts)
-    p.reset()
-    buf_neg = MarketBuffer()
-    for i in range(25):
-        buf_neg.add_tick(create_tick(ts + i * 50, 2745.0 + i * 0.05))
-    assert p.evaluate(buf_neg) is None
-
-
-def test_pola_20_volatility_burst(registry):
-    """Pola 20: Volatility Burst."""
-    p = registry.get_pattern(20)
-    p.reset()
-    ts = 1700000000000
-    
-    # Positive BUY: freq >= 20 t/s and abs(displacement) >= 0.50 pts
-    buf_pos = MarketBuffer()
-    for i in range(25):
-        buf_pos.add_tick(create_tick(ts + i * 30, 2745.0 + i * 0.03))  # 25 ticks in 720ms (34.7 t/s) and +0.72 pts
-    
-    sig = p.check(buf_pos)
-    assert sig is not None
-    assert sig.direction == SignalDirection.BUY
-    assert p.check(buf_pos) is None
-
-    # Negative test: slow frequency
-    p.reset()
-    buf_neg = MarketBuffer()
-    for i in range(25):
-        buf_neg.add_tick(create_tick(ts + i * 200, 2745.0 + i * 0.03))
-    assert p.evaluate(buf_neg) is None
-
-
-def test_pola_24_rejection(registry):
-    """Pola 24: Rejection Pattern."""
-    p = registry.get_pattern(24)
-    p.reset()
-    ts = 1700000000000
-    
-    # Positive BUY (Lower Rejection): tested min 2744.0 then bounced to 2744.40 (>= 0.35)
-    buf_pos = MarketBuffer()
-    for i in range(10):
-        buf_pos.add_tick(create_tick(ts + i * 50, 2745.0 - i * 0.10))  # down to 2744.10
-    buf_pos.add_tick(create_tick(ts + 550, 2744.00))  # min
-    for i in range(8):
-        buf_pos.add_tick(create_tick(ts + 600 + i * 50, 2744.05 + i * 0.06))  # up to 2744.47
-    
-    sig = p.check(buf_pos)
-    assert sig is not None
-    assert sig.direction == SignalDirection.BUY
-    assert p.check(buf_pos) is None
-
-    # Negative test: price stays at extreme without rejection
-    p.reset()
-    buf_neg = MarketBuffer()
-    for i in range(18):
-        buf_neg.add_tick(create_tick(ts + i * 50, 2745.0 - i * 0.05))
-    assert p.evaluate(buf_neg) is None
-
-
-def test_pola_28_gap(registry):
-    """Pola 28: Gap Pattern."""
-    p = registry.get_pattern(28)
-    p.reset()
-    now = datetime.now(timezone.utc)
-    
-    # Positive BUY: gap up >= 0.40 within 60s
-    buf_pos = MarketBuffer()
-    c1 = create_candle(now - timedelta(minutes=1), 2740.0, 2742.0, 2739.5, 2741.0)
-    c0 = create_candle(now, 2741.5, 2743.0, 2741.4, 2742.5)  # gap = 2741.5 - 2741.0 = +0.50 pts
-    buf_pos.add_completed_candle(c1)
-    buf_pos.add_completed_candle(c0)
-    buf_pos.add_tick(create_tick(int(now.timestamp() * 1000), 2741.5))
-    
-    sig = p.check(buf_pos)
-    assert sig is not None
-    assert sig.direction == SignalDirection.BUY
-    assert p.check(buf_pos) is None
-
-    # Negative test: weekend / multi-hour gap (> 180s)
-    p.reset()
-    buf_neg = MarketBuffer()
-    c1_weekend = create_candle(now - timedelta(hours=48), 2740.0, 2742.0, 2739.5, 2741.0)
-    buf_neg.add_completed_candle(c1_weekend)
-    buf_neg.add_completed_candle(c0)
-    assert p.evaluate(buf_neg) is None
-
-
-def test_pola_29_failed_momentum(registry):
-    """Pola 29: Failed Momentum."""
-    p = registry.get_pattern(29)
-    p.reset()
-    ts = 1700000000000
-    
-    # Positive SELL: leg1 up +0.55, leg2 down -0.55
-    buf_pos = MarketBuffer()
-    for i in range(13):
-        buf_pos.add_tick(create_tick(ts + i * 50, 2745.0 + i * 0.05))  # +0.60
-    for i in range(15):
-        buf_pos.add_tick(create_tick(ts + 650 + i * 50, 2745.60 - i * 0.05))  # -0.70
-    
-    sig = p.check(buf_pos)
-    assert sig is not None
-    assert sig.direction == SignalDirection.SELL
-    assert p.check(buf_pos) is None
-
-    # Negative test: momentum continued
-    p.reset()
-    buf_neg = MarketBuffer()
-    for i in range(28):
-        buf_neg.add_tick(create_tick(ts + i * 50, 2745.0 + i * 0.04))
-    assert p.evaluate(buf_neg) is None
-
-
-def test_pola_30_momentum_exhaustion(registry):
-    """Pola 30: Momentum Exhaustion."""
-    p = registry.get_pattern(30)
-    p.reset()
-    now = datetime.now(timezone.utc)
-    ts = int(now.timestamp() * 1000)
-    
-    # Positive SELL: c1 large bullish (range 2.0), ticks stall at high, then drop
-    buf_pos = MarketBuffer()
-    c1 = create_candle(now - timedelta(minutes=1), 2740.0, 2746.0, 2739.8, 2745.8)  # range 6.2
-    buf_pos.add_completed_candle(c1)
-    for i in range(18):
-        buf_pos.add_tick(create_tick(ts + i * 50, 2745.90 + (i % 2) * 0.08))  # stall span 0.08
-    buf_pos.add_tick(create_tick(ts + 950, 2745.65))  # drops below c1.high - 0.20
-    
-    sig = p.check(buf_pos)
-    assert sig is not None
-    assert sig.direction == SignalDirection.SELL
-    assert p.check(buf_pos) is None
-
-    # Negative test: small bar (range < 1.5)
-    p.reset()
-    buf_neg = MarketBuffer()
-    c1_small = create_candle(now - timedelta(minutes=1), 2745.0, 2745.5, 2744.8, 2745.4)
-    buf_neg.add_completed_candle(c1_small)
-    buf_neg.add_tick(create_tick(ts, 2745.4))
-    assert p.evaluate(buf_neg) is None
-
-
-def test_pola_36_v_reversal(registry):
-    """Pola 36: V-Reversal."""
-    p = registry.get_pattern(36)
-    p.reset()
-    ts = 1700000000000
-    
-    # Positive BUY: drop >= 0.50 pts, rebound >= 80%
-    buf_pos = MarketBuffer()
-    for i in range(15):
-        buf_pos.add_tick(create_tick(ts + i * 50, 2745.0 - i * 0.05))  # -0.70 pts to 2744.30
-    for i in range(15):
-        buf_pos.add_tick(create_tick(ts + 750 + i * 50, 2744.30 + i * 0.05))  # +0.70 pts rebound
-    
-    sig = p.check(buf_pos)
-    assert sig is not None
-    assert sig.direction == SignalDirection.BUY
-    assert p.check(buf_pos) is None
-
-    # Negative test: no rebound
-    p.reset()
-    buf_neg = MarketBuffer()
+    price = 2745.0
     for i in range(30):
-        buf_neg.add_tick(create_tick(ts + i * 50, 2745.0 - i * 0.03))
-    assert p.evaluate(buf_neg) is None
-
-
-def test_pola_37_inverted_v_reversal(registry):
-    """Pola 37: Inverted V-Reversal."""
-    p = registry.get_pattern(37)
-    p.reset()
-    ts = 1700000000000
-    
-    # Positive SELL: rally >= 0.50 pts, slump >= 80%
-    buf_pos = MarketBuffer()
-    for i in range(15):
-        buf_pos.add_tick(create_tick(ts + i * 50, 2745.0 + i * 0.05))  # +0.70 pts to 2745.70
-    for i in range(15):
-        buf_pos.add_tick(create_tick(ts + 750 + i * 50, 2745.70 - i * 0.05))  # slump back
-    
-    sig = p.check(buf_pos)
-    assert sig is not None
-    assert sig.direction == SignalDirection.SELL
-    assert p.check(buf_pos) is None
-
-    # Negative test: ongoing rally
-    p.reset()
-    buf_neg = MarketBuffer()
-    for i in range(30):
-        buf_neg.add_tick(create_tick(ts + i * 50, 2745.0 + i * 0.03))
-    assert p.evaluate(buf_neg) is None
-
-
-def test_pola_40_hybrid_tick_candle(registry):
-    """Pola 40: Hybrid Tick-Candle."""
-    p = registry.get_pattern(40)
-    p.reset()
-    now = datetime.now(timezone.utc)
-    ts = int(now.timestamp() * 1000)
-    
-    # Positive BUY: c1 lower wick >= 45% of range, and tick imbalance >= 70% upticks
-    buf_pos = MarketBuffer()
-    c1 = create_candle(now - timedelta(minutes=1), 2743.0, 2743.5, 2740.0, 2743.2)  # range 3.5, lower wick = 3.0 (85%)
-    buf_pos.add_completed_candle(c1)
-    px = 2743.2
-    for i in range(18):
-        px += 0.04 if i % 5 != 0 else -0.01
-        buf_pos.add_tick(create_tick(ts + i * 50, round(px, 2)))
-    
-    sig = p.check(buf_pos)
-    assert sig is not None
-    assert sig.direction == SignalDirection.BUY
-    assert p.check(buf_pos) is None
-
-    # Negative test: flat candle wick
-    p.reset()
-    buf_neg = MarketBuffer()
-    c1_flat = create_candle(now - timedelta(minutes=1), 2740.0, 2742.0, 2739.8, 2741.8)
-    buf_neg.add_completed_candle(c1_flat)
-    buf_neg.add_tick(create_tick(ts, 2741.8))
-    assert p.evaluate(buf_neg) is None
-
-
-# ==============================================================================
-# 4. SWING GEOMETRY PATTERNS (Pola 31 - 35)
-# ==============================================================================
-
-def test_pola_31_micro_double_top(registry):
-    """Pola 31: Micro Double Top."""
-    p = registry.get_pattern(31)
-    p.reset()
-    now = datetime.now(timezone.utc)
-    
-    # Positive SELL: peak 1 at 2746.0, valley at 2744.0 (depth 2.0), peak 2 at 2746.10, tick rejected
-    buf_pos = MarketBuffer()
-    c5 = create_candle(now - timedelta(minutes=5), 2743.0, 2744.0, 2742.0, 2743.5)
-    c4 = create_candle(now - timedelta(minutes=4), 2743.5, 2746.0, 2743.0, 2745.5)  # Peak 1 (2746.0)
-    c3 = create_candle(now - timedelta(minutes=3), 2745.5, 2745.8, 2744.0, 2744.2)  # Valley (2744.0)
-    c2 = create_candle(now - timedelta(minutes=2), 2744.2, 2744.8, 2744.0, 2744.5)
-    c1 = create_candle(now - timedelta(minutes=1), 2744.5, 2745.5, 2744.2, 2745.2)
-    c0 = create_candle(now, 2745.2, 2746.1, 2744.8, 2745.5)  # Peak 2 (2746.1)
-    for c in [c5, c4, c3, c2, c1, c0]:
-        buf_pos.add_completed_candle(c)
-    buf_pos.add_tick(create_tick(int(now.timestamp() * 1000), 2745.70))  # < 2746.10 - 0.15
-    
-    sig = p.check(buf_pos)
-    assert sig is not None
-    assert sig.direction == SignalDirection.SELL
-    assert sig.pattern_role == PatternRole.STRUCTURE
-    assert p.check(buf_pos) is None
-
-    # Negative test: ascending tops (trending up)
-    p.reset()
-    buf_neg = MarketBuffer()
-    c0_trend = create_candle(now, 2745.2, 2749.0, 2745.0, 2748.5)
-    for c in [c5, c4, c3, c2, c1, c0_trend]:
-        buf_neg.add_completed_candle(c)
-    buf_neg.add_tick(create_tick(int(now.timestamp() * 1000), 2748.5))
-    assert p.evaluate(buf_neg) is None
-
-
-def test_pola_32_micro_double_bottom(registry):
-    """Pola 32: Micro Double Bottom."""
-    p = registry.get_pattern(32)
-    p.reset()
-    now = datetime.now(timezone.utc)
-    
-    # Positive BUY: bottom 1 at 2740.0, peak at 2742.0 (height 2.0), bottom 2 at 2740.10, tick bounced
-    buf_pos = MarketBuffer()
-    c5 = create_candle(now - timedelta(minutes=5), 2743.0, 2744.0, 2742.0, 2742.5)
-    c4 = create_candle(now - timedelta(minutes=4), 2742.5, 2743.0, 2740.0, 2740.5)  # Bottom 1 (2740.0)
-    c3 = create_candle(now - timedelta(minutes=3), 2740.5, 2742.0, 2740.2, 2741.8)  # Peak (2742.0)
-    c2 = create_candle(now - timedelta(minutes=2), 2741.8, 2742.0, 2741.2, 2741.5)
-    c1 = create_candle(now - timedelta(minutes=1), 2741.5, 2741.8, 2740.8, 2741.0)
-    c0 = create_candle(now, 2741.0, 2741.5, 2740.1, 2740.8)  # Bottom 2 (2740.1)
-    for c in [c5, c4, c3, c2, c1, c0]:
-        buf_pos.add_completed_candle(c)
-    buf_pos.add_tick(create_tick(int(now.timestamp() * 1000), 2740.40))  # > 2740.10 + 0.15
-    
-    sig = p.check(buf_pos)
-    assert sig is not None
-    assert sig.direction == SignalDirection.BUY
-    assert p.check(buf_pos) is None
-
-    # Negative test: descending bottoms (trending down)
-    p.reset()
-    buf_neg = MarketBuffer()
-    c0_trend = create_candle(now, 2741.0, 2741.5, 2737.0, 2737.5)
-    for c in [c5, c4, c3, c2, c1, c0_trend]:
-        buf_neg.add_completed_candle(c)
-    buf_neg.add_tick(create_tick(int(now.timestamp() * 1000), 2737.5))
-    assert p.evaluate(buf_neg) is None
-
-
-def test_pola_33_micro_swing_break(registry):
-    """Pola 33: Micro Swing Break."""
-    p = registry.get_pattern(33)
-    p.reset()
-    now = datetime.now(timezone.utc)
-    
-    # Positive BUY: swing high of bars 1-5 is 2745.0, tick breaks above 2745.20
-    buf_pos = MarketBuffer()
-    c5 = create_candle(now - timedelta(minutes=5), 2740.0, 2742.0, 2739.0, 2741.0)
-    c4 = create_candle(now - timedelta(minutes=4), 2741.0, 2745.0, 2740.0, 2744.0)  # max high 2745.0
-    c3 = create_candle(now - timedelta(minutes=3), 2744.0, 2744.5, 2742.0, 2743.0)
-    c2 = create_candle(now - timedelta(minutes=2), 2743.0, 2744.0, 2742.0, 2743.5)
-    c1 = create_candle(now - timedelta(minutes=1), 2743.5, 2744.5, 2743.0, 2744.0)
-    c0 = create_candle(now, 2744.0, 2744.8, 2743.8, 2744.5)
-    for c in [c5, c4, c3, c2, c1, c0]:
-        buf_pos.add_completed_candle(c)
-    buf_pos.add_tick(create_tick(int(now.timestamp() * 1000), 2745.25))
-    
-    sig = p.check(buf_pos)
-    assert sig is not None
-    assert sig.direction == SignalDirection.BUY
-    assert p.check(buf_pos) is None
-
-    # Negative test: tick inside swing range
-    p.reset()
-    buf_neg = MarketBuffer()
-    for c in [c5, c4, c3, c2, c1, c0]:
-        buf_neg.add_completed_candle(c)
-    buf_neg.add_tick(create_tick(int(now.timestamp() * 1000), 2743.0))
-    assert p.evaluate(buf_neg) is None
-
-
-def test_pola_34_micro_swing_failure(registry):
-    """Pola 34: Micro Swing Failure."""
-    p = registry.get_pattern(34)
-    p.reset()
-    now = datetime.now(timezone.utc)
-    ts = int(now.timestamp() * 1000)
-    
-    # Positive SELL: swing high is 2745.0, ticks test 2745.10 then collapse to 2744.60
-    buf_pos = MarketBuffer()
-    c5 = create_candle(now - timedelta(minutes=5), 2740.0, 2742.0, 2739.0, 2741.0)
-    c4 = create_candle(now - timedelta(minutes=4), 2741.0, 2745.0, 2740.0, 2744.0)  # swing high 2745.0
-    c3 = create_candle(now - timedelta(minutes=3), 2744.0, 2744.5, 2742.0, 2743.0)
-    c2 = create_candle(now - timedelta(minutes=2), 2743.0, 2744.0, 2742.0, 2743.5)
-    c1 = create_candle(now - timedelta(minutes=1), 2743.5, 2744.5, 2743.0, 2744.0)
-    c0 = create_candle(now, 2744.0, 2744.8, 2743.8, 2744.5)
-    for c in [c5, c4, c3, c2, c1, c0]:
-        buf_pos.add_completed_candle(c)
-    for i in range(8):
-        buf_pos.add_tick(create_tick(ts + i * 50, 2744.5 + i * 0.08))  # reaches 2745.06
-    buf_pos.add_tick(create_tick(ts + 500, 2744.70))
-    buf_pos.add_tick(create_tick(ts + 550, 2744.60))  # collapsed
-    
-    sig = p.check(buf_pos)
-    assert sig is not None
-    assert sig.direction == SignalDirection.SELL
-    assert p.check(buf_pos) is None
-
-    # Negative test: tick stays above swing high
-    p.reset()
-    buf_neg = MarketBuffer()
-    for c in [c5, c4, c3, c2, c1, c0]:
-        buf_neg.add_completed_candle(c)
-    for i in range(10):
-        buf_neg.add_tick(create_tick(ts + i * 50, 2745.50 + i * 0.05))
-    assert p.evaluate(buf_neg) is None
-
-
-def test_pola_35_three_push(registry):
-    """Pola 35: Three-Push Pattern."""
-    p = registry.get_pattern(35)
-    p.reset()
-    now = datetime.now(timezone.utc)
-    
-    # Positive SELL: 3 upward pushes with diminishing thrusts, reversal break below push 3 base
-    # Push 1: high 2740.0
-    # Push 2: high 2744.0 (+4.0)
-    # Push 3: high 2746.0 (+2.0 < 4.0 * 0.75), low of c0 is 2743.5
-    buf_pos = MarketBuffer()
-    c4 = create_candle(now - timedelta(minutes=4), 2738.0, 2740.0, 2737.0, 2739.0)
-    c3 = create_candle(now - timedelta(minutes=3), 2739.0, 2741.0, 2738.5, 2740.5)
-    c2 = create_candle(now - timedelta(minutes=2), 2740.5, 2744.0, 2740.0, 2743.5)
-    c1 = create_candle(now - timedelta(minutes=1), 2743.5, 2744.5, 2743.0, 2743.8)
-    c0 = create_candle(now, 2743.8, 2746.0, 2743.5, 2744.5)
-    for c in [c4, c3, c2, c1, c0]:
-        buf_pos.add_completed_candle(c)
-    buf_pos.add_tick(create_tick(int(now.timestamp() * 1000), 2743.30))  # < c0.low - 0.05
-    
-    sig = p.check(buf_pos)
-    assert sig is not None
-    assert sig.direction == SignalDirection.SELL
-    assert sig.pattern_role == PatternRole.STRUCTURE
-    assert p.check(buf_pos) is None
-
-    # Negative test: thrusts increasing (strong breakout, not wedge)
-    p.reset()
-    buf_neg = MarketBuffer()
-    c0_strong = create_candle(now, 2743.8, 2750.0, 2743.5, 2749.5)  # thrust2 = 6.0 > 4.0
-    for c in [c4, c3, c2, c1, c0_strong]:
-        buf_neg.add_completed_candle(c)
-    buf_neg.add_tick(create_tick(int(now.timestamp() * 1000), 2743.30))
-    assert p.evaluate(buf_neg) is None
+        o = price
+        c = price + (0.20 if i % 2 == 0 else -0.15)
+        h = max(o, c) + 0.30
+        l = min(o, c) - 0.30
+        buf.add_completed_candle(create_candle(now - timedelta(minutes=30-i), o, h, l, c))
+        price = c
+    fired = registry.evaluate_all(buf)
+    assert isinstance(fired, list)
