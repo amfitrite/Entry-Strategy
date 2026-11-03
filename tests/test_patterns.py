@@ -62,7 +62,7 @@ def test_pola_01_candlestick_reversal_bullish():
     
     buf.add_completed_candle(c1)
     buf.add_completed_candle(c0)
-    buf.add_tick(create_mock_tick(int(now.timestamp() * 1000), 2745.2))
+    
     
     sig = pattern.evaluate(buf)
     assert sig is not None
@@ -84,55 +84,55 @@ def test_pola_02_continuation_three_soldiers():
     buf.add_completed_candle(c2)
     buf.add_completed_candle(c1)
     buf.add_completed_candle(c0)
-    buf.add_tick(create_mock_tick(int(now.timestamp() * 1000), 2745.9))
+    
     
     sig = pattern.evaluate(buf)
     assert sig is not None
     assert sig.direction == SignalDirection.BUY
 
 
-def test_pola_13_tick_imbalance_buy():
+def test_pola_13_candle_displacement_buy():
     registry = PatternRegistry()
     pattern = registry.get_pattern(13)
-    buf = MarketBuffer()
-    
-    # 20 ticks with 17 upticks
-    px = 2745.0
-    ts = 1700000000000
-    for i in range(21):
-        if i % 5 != 0:
-            px += 0.05
-        else:
-            px -= 0.02
-        ts += 100
-        buf.add_tick(create_mock_tick(ts, round(px, 2)))
-        
+    buf = MarketBuffer(enable_ticks=False)
+    now = datetime.now(timezone.utc)
+
+    # Three small preceding candles, then a wide bullish close beyond local high.
+    candles = [
+        create_mock_candle(now - timedelta(minutes=4), 2745.0, 2746.0, 2744.5, 2745.5),
+        create_mock_candle(now - timedelta(minutes=3), 2745.5, 2746.1, 2745.0, 2745.8),
+        create_mock_candle(now - timedelta(minutes=2), 2745.8, 2746.2, 2745.1, 2745.9),
+        create_mock_candle(now - timedelta(minutes=1), 2745.8, 2749.0, 2745.6, 2748.7),
+    ]
+    for candle in candles:
+        buf.add_completed_candle(candle)
+
     sig = pattern.evaluate(buf)
     assert sig is not None
     assert sig.direction == SignalDirection.BUY
+    assert sig.metrics["body_ratio"] >= 0.65
 
 
-def test_pola_35_three_push_pattern():
+def test_pola_35_three_push_needs_closed_reversal_confirmation():
     registry = PatternRegistry()
     pattern = registry.get_pattern(35)
-    buf = MarketBuffer()
-    
+    buf = MarketBuffer(enable_ticks=False)
+
     now = datetime.now(timezone.utc)
-    # 3 upward pushes with diminishing thrust:
-    # Push 1: high 2740.0
-    # Push 2: high 2744.0 (+4.0)
-    # Push 3: high 2746.0 (+2.0, which is < 4.0 * 0.75)
-    c4 = create_mock_candle(now - timedelta(minutes=4), 2738.0, 2740.0, 2737.0, 2739.0)
-    c3 = create_mock_candle(now - timedelta(minutes=3), 2739.0, 2741.0, 2738.5, 2740.5)
-    c2 = create_mock_candle(now - timedelta(minutes=2), 2740.5, 2744.0, 2740.0, 2743.5)
-    c1 = create_mock_candle(now - timedelta(minutes=1), 2743.5, 2744.5, 2743.0, 2743.8)
-    c0 = create_mock_candle(now, 2743.8, 2746.0, 2743.5, 2744.5)
-    
-    for c in [c4, c3, c2, c1, c0]:
-        buf.add_completed_candle(c)
-    # Reversal trigger breaks below push 3 base (candle 0 low is 2743.5)
-    buf.add_tick(create_mock_tick(int(now.timestamp() * 1000), 2743.30))
-    
+    # Pushes 1, 2, 3 have highs 2740.0, 2744.0, 2745.5.
+    # The second thrust is smaller than 75% of the first. A final bearish
+    # candle closes below the third push base (2742.5).
+    candles = [
+        create_mock_candle(now - timedelta(minutes=5), 2738.0, 2740.0, 2737.0, 2739.0),
+        create_mock_candle(now - timedelta(minutes=4), 2739.0, 2741.0, 2738.5, 2740.5),
+        create_mock_candle(now - timedelta(minutes=3), 2740.5, 2744.0, 2740.0, 2743.5),
+        create_mock_candle(now - timedelta(minutes=2), 2743.5, 2744.5, 2743.0, 2743.8),
+        create_mock_candle(now - timedelta(minutes=1), 2743.0, 2745.5, 2742.5, 2745.0),
+        create_mock_candle(now, 2743.0, 2743.5, 2741.0, 2741.5),
+    ]
+    for candle in candles:
+        buf.add_completed_candle(candle)
+
     sig = pattern.evaluate(buf)
     assert sig is not None
     assert sig.direction == SignalDirection.SELL
