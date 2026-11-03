@@ -1040,6 +1040,115 @@
       color: #64748b;
     }
 
+    /* Technical Grade Badges & Visuals */
+    .grade-pill {
+      font-size: 10px;
+      font-weight: 800;
+      padding: 2px 7px;
+      border-radius: 4px;
+      letter-spacing: 0.3px;
+      font-variant-numeric: tabular-nums;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      text-transform: uppercase;
+    }
+    .grade-sss {
+      background: linear-gradient(135deg, #f59e0b, #fbbf24, #d97706);
+      color: #000;
+      box-shadow: 0 0 10px rgba(245, 158, 11, 0.45);
+    }
+    .grade-ss {
+      background: linear-gradient(135deg, #06b6d4, #3b82f6);
+      color: #fff;
+      box-shadow: 0 0 8px rgba(6, 182, 212, 0.35);
+    }
+    .grade-s {
+      background: #10b981;
+      color: #000;
+      box-shadow: 0 0 6px rgba(16, 185, 129, 0.3);
+    }
+    .grade-a {
+      background: #3b82f6;
+      color: #fff;
+    }
+    .grade-b {
+      background: #eab308;
+      color: #000;
+    }
+    .grade-c {
+      background: #f97316;
+      color: #fff;
+    }
+    .grade-d {
+      background: #64748b;
+      color: #fff;
+    }
+
+    .tf-badge {
+      font-size: 9.5px;
+      font-weight: 800;
+      color: #cbd5e1;
+      background: #242938;
+      border: 1px solid #3e475e;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .grade-mini-strip {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 9.5px;
+      color: #94a3b8;
+      background: rgba(0, 0, 0, 0.25);
+      padding: 3px 6px;
+      border-radius: 4px;
+      font-variant-numeric: tabular-nums;
+      flex-wrap: wrap;
+    }
+    .grade-mini-strip span {
+      background: #171b26;
+      padding: 1px 4px;
+      border-radius: 3px;
+      border: 1px solid #232938;
+    }
+
+    .comp-box {
+      background: #171b26;
+      border: 1px solid #23293a;
+      border-radius: 4px;
+      padding: 6px 8px;
+    }
+    .comp-label {
+      font-size: 9.5px;
+      color: #94a3b8;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .comp-score {
+      font-size: 14px;
+      font-weight: 800;
+      color: #fff;
+      font-variant-numeric: tabular-nums;
+      margin: 2px 0;
+    }
+    .comp-bar-bg {
+      width: 100%;
+      height: 4px;
+      background: #242c3d;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .comp-bar-fill {
+      height: 100%;
+      background: #3b82f6;
+      border-radius: 2px;
+    }
+
     /* Toast Notification for Continue where you left off */
     .session-toast {
       position: fixed;
@@ -1165,19 +1274,38 @@
         </button>
       </div>
 
-      <!-- Radar Direction Filter Group (Active on Radar View) -->
-      <div class="filter-group" id="radarFilterGroup">
+      <!-- Radar Direction & Tier Filter Group (Active on Radar View) -->
+      <div class="filter-group" id="radarFilterGroup" style="flex-wrap:wrap; gap:4px;">
         <button class="filter-btn active" id="btnFilterAll" onclick="setDirectionFilter('ALL', this)">Semua Sinyal (0)</button>
         <button class="filter-btn" id="btnFilterBuy" onclick="setDirectionFilter('BUY', this)" style="color:var(--accent-green);">BUY Saja (0)</button>
         <button class="filter-btn" id="btnFilterSell" onclick="setDirectionFilter('SELL', this)" style="color:var(--accent-red);">SELL Saja (0)</button>
+        <span style="color:#475569; font-size:12px; margin:0 2px;">|</span>
+        <button class="filter-btn active" id="btnGradeFilterAll" onclick="setGradeFilter('ALL', this)">Semua Grade</button>
+        <button class="filter-btn" id="btnGradeFilterSSS" onclick="setGradeFilter('SSS', this)" style="color:#fbbf24;">★ SSS</button>
+        <button class="filter-btn" id="btnGradeFilterSS" onclick="setGradeFilter('SS+', this)" style="color:#38bdf8;">SS+</button>
+        <button class="filter-btn" id="btnGradeFilterS" onclick="setGradeFilter('S+', this)" style="color:#34d399;">S+</button>
+        <button class="filter-btn" id="btnGradeFilterA" onclick="setGradeFilter('A+', this)" style="color:#818cf8;">A+</button>
+        <span style="color:#475569; font-size:12px; margin:0 2px;">|</span>
+        <button class="filter-btn" id="btnSortScore" onclick="toggleScoreSort(this)">⚡ Urut Score</button>
       </div>
 
-      <!-- History Status Filter Group (Active on History View) -->
-      <div class="filter-group" id="historyFilterGroup" style="display:none;">
+      <!-- History Status, TF & Grade Filter Group (Active on History View) -->
+      <div class="filter-group" id="historyFilterGroup" style="display:none; flex-wrap:wrap; gap:4px;">
         <button class="filter-btn active" id="btnHistFilterAll" onclick="setHistoryFilter('ALL', this)">Semua Log (0)</button>
         <button class="filter-btn" id="btnHistFilterConf" onclick="setHistoryFilter('CONFIRMED', this)" style="color:#10b981;">✔ Confirmed (0)</button>
         <button class="filter-btn" id="btnHistFilterInval" onclick="setHistoryFilter('INVALIDATED', this)" style="color:#ef4444;">✖ Invalidated (0)</button>
         <button class="filter-btn" id="btnHistFilterExp" onclick="setHistoryFilter('EXPIRED', this)" style="color:#94a3b8;">⏱ Expired (0)</button>
+        <span style="color:#475569; font-size:12px; margin:0 2px;">|</span>
+        <button class="filter-btn active" id="btnHistTfAll" onclick="setHistoryTfFilter('ALL', this)">Semua TF</button>
+        <button class="filter-btn" id="btnHistTfM1" onclick="setHistoryTfFilter('M1', this)">M1</button>
+        <button class="filter-btn" id="btnHistTfM5" onclick="setHistoryTfFilter('M5', this)">M5</button>
+        <button class="filter-btn" id="btnHistTfM15" onclick="setHistoryTfFilter('M15', this)">M15</button>
+        <span style="color:#475569; font-size:12px; margin:0 2px;">|</span>
+        <button class="filter-btn active" id="btnHistGradeAll" onclick="setHistoryGradeFilter('ALL', this)">Semua Grade</button>
+        <button class="filter-btn" id="btnHistGradeSSS" onclick="setHistoryGradeFilter('SSS', this)" style="color:#fbbf24;">SSS</button>
+        <button class="filter-btn" id="btnHistGradeSS" onclick="setHistoryGradeFilter('SS', this)" style="color:#38bdf8;">SS</button>
+        <button class="filter-btn" id="btnHistGradeS" onclick="setHistoryGradeFilter('S', this)" style="color:#34d399;">S</button>
+        <button class="filter-btn" id="btnHistGradeA" onclick="setHistoryGradeFilter('A', this)" style="color:#818cf8;">A</button>
       </div>
     </div>
 
@@ -1215,21 +1343,39 @@
     <!-- View 2: Jurnal Riwayat Sinyal -->
     <div id="viewHistoryContainer" style="display:none; flex-direction:column; flex:1; width:100%; height:100%; overflow:hidden;">
       <!-- Session KPI Summary Banner -->
-      <div class="history-summary-strip">
+      <div class="history-summary-strip" style="flex-wrap:wrap; gap:8px;">
         <div class="kpi-card">
-          <span class="kpi-label">TOTAL SINYAL TERDETEKSI</span>
+          <span class="kpi-label">TOTAL LOG SINYAL</span>
           <span class="kpi-val" id="kpiTotalSignals">0</span>
         </div>
+        <div class="kpi-card" style="border-left: 3px solid #f59e0b;">
+          <span class="kpi-label">DISTRIBUSI TIER GRADE</span>
+          <div style="display:flex; gap:4px; margin-top:4px; flex-wrap:wrap;">
+            <span class="grade-pill grade-sss" id="kpiGradeSSS">SSS: 0</span>
+            <span class="grade-pill grade-ss" id="kpiGradeSS">SS: 0</span>
+            <span class="grade-pill grade-s" id="kpiGradeS">S: 0</span>
+            <span class="grade-pill grade-a" id="kpiGradeA">A: 0</span>
+            <span class="grade-pill grade-b" id="kpiGradeB">B+: 0</span>
+          </div>
+        </div>
+        <div class="kpi-card" style="border-left: 3px solid #3b82f6;">
+          <span class="kpi-label">DISTRIBUSI TIMEFRAME</span>
+          <div style="display:flex; gap:6px; margin-top:4px; font-size:11.5px; font-weight:800;">
+            <span style="color:#60a5fa;" id="kpiTfM1">M1: 0</span>
+            <span style="color:#a78bfa;" id="kpiTfM5">M5: 0</span>
+            <span style="color:#f472b6;" id="kpiTfM15">M15: 0</span>
+          </div>
+        </div>
         <div class="kpi-card kpi-confirmed">
-          <span class="kpi-label">✔ TERKONFIRMASI (TP TARGET)</span>
+          <span class="kpi-label">✔ STATUS CONFIRMED</span>
           <span class="kpi-val" id="kpiConfirmed">0 <small id="kpiConfirmedPct" style="font-size:11px; opacity:0.8;">(0%)</small></span>
         </div>
         <div class="kpi-card kpi-invalidated">
-          <span class="kpi-label">✖ BATAL / STOP LOSS (INVAL)</span>
+          <span class="kpi-label">✖ STATUS INVALIDATED</span>
           <span class="kpi-val" id="kpiInvalidated">0 <small id="kpiInvalidatedPct" style="font-size:11px; opacity:0.8;">(0%)</small></span>
         </div>
         <div class="kpi-card kpi-expired">
-          <span class="kpi-label">⏱ KADALUWARSA (BAR TIMEOUT)</span>
+          <span class="kpi-label">⏱ STATUS EXPIRED</span>
           <span class="kpi-val" id="kpiExpired">0 <small id="kpiExpiredPct" style="font-size:11px; opacity:0.8;">(0%)</small></span>
         </div>
       </div>
@@ -1239,14 +1385,16 @@
         <table class="history-table">
           <thead>
             <tr>
-              <th style="width: 85px;">WAKTU</th>
+              <th style="width: 80px;">WAKTU</th>
               <th>STRATEGI & METODE</th>
-              <th style="width: 75px; text-align:center;">ARAH</th>
-              <th style="width: 100px; text-align:right;">TRIGGER</th>
-              <th style="width: 105px; text-align:right;">EST FILL</th>
-              <th style="width: 100px; text-align:right;">INVALID (SL)</th>
-              <th style="width: 130px; text-align:center;">STATUS AKHIR</th>
-              <th style="width: 75px; text-align:center;">AKSI</th>
+              <th style="width: 55px; text-align:center;">TF</th>
+              <th style="width: 70px; text-align:center;">ARAH</th>
+              <th style="width: 85px; text-align:center;">GRADE</th>
+              <th style="width: 90px; text-align:right;">TRIGGER</th>
+              <th style="width: 95px; text-align:right;">EST FILL</th>
+              <th style="width: 90px; text-align:right;">INVALID</th>
+              <th style="width: 110px; text-align:center;">STATUS</th>
+              <th style="width: 65px; text-align:center;">AKSI</th>
             </tr>
           </thead>
           <tbody id="historyTableBody">
@@ -1322,6 +1470,58 @@
           Deskripsi singkat logika keluarga strategi ini...
         </div>
 
+        <!-- Technical Tier Grading Section -->
+        <div class="modal-grading-box" id="modalGradingSection" style="background:#131620; border:1px solid #232b3e; border-radius:6px; padding:12px; margin-top:8px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-size:11px; font-weight:800; color:#94a3b8; text-transform:uppercase;">TECHNICAL GRADE:</span>
+              <span class="grade-pill grade-sss" id="modalGradeBadge" style="font-size:12px; padding:3px 10px;">SSS 97.2</span>
+              <span class="tf-badge" id="modalGradeTf" style="font-size:10px;">M5</span>
+            </div>
+            <div style="font-size:11px; color:#94a3b8;">
+              Confidence: <strong id="modalGradeConfidence" style="color:#60a5fa;">95%</strong> | Ver: <span id="modalGradeVer">1.0</span>
+            </div>
+          </div>
+
+          <!-- Gating / Capped notice banner -->
+          <div id="modalCappedNotice" style="display:none; background:rgba(245, 158, 11, 0.15); border:1px solid #f59e0b; border-radius:4px; padding:6px 10px; font-size:11px; color:#fbbf24; margin-bottom:8px;"></div>
+
+          <!-- 5 Component Breakdown Bars -->
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap:6px; margin-bottom:8px;">
+            <div class="comp-box">
+              <div class="comp-label">Pattern Quality (30%)</div>
+              <div class="comp-score" id="compPatternQuality">95</div>
+              <div class="comp-bar-bg"><div class="comp-bar-fill" id="barPatternQuality" style="width:95%;"></div></div>
+            </div>
+            <div class="comp-box">
+              <div class="comp-label">Market Structure (20%)</div>
+              <div class="comp-score" id="compMarketStructure">92</div>
+              <div class="comp-bar-bg"><div class="comp-bar-fill" id="barMarketStructure" style="width:92%;"></div></div>
+            </div>
+            <div class="comp-box">
+              <div class="comp-label">Location Quality (20%)</div>
+              <div class="comp-score" id="compLocationQuality">90</div>
+              <div class="comp-bar-bg"><div class="comp-bar-fill" id="barLocationQuality" style="width:90%;"></div></div>
+            </div>
+            <div class="comp-box">
+              <div class="comp-label">Candle Confirm (15%)</div>
+              <div class="comp-score" id="compCandleConfirm">88</div>
+              <div class="comp-bar-bg"><div class="comp-bar-fill" id="barCandleConfirm" style="width:88%;"></div></div>
+            </div>
+            <div class="comp-box">
+              <div class="comp-label">Execution Quality (15%)</div>
+              <div class="comp-score" id="compExecutionQuality">94</div>
+              <div class="comp-bar-bg"><div class="comp-bar-fill" id="barExecutionQuality" style="width:94%;"></div></div>
+            </div>
+          </div>
+
+          <!-- Grading Reasons (+) and Penalties (-) Audit -->
+          <div style="margin-top:6px;">
+            <div style="font-size:10.5px; font-weight:700; color:#94a3b8; margin-bottom:4px;">REASON & PENALTY AUDIT:</div>
+            <div id="modalGradeReasonsContainer" style="display:flex; flex-direction:column; gap:3px; font-size:11px;"></div>
+          </div>
+        </div>
+
         <div class="reasons-container">
           <div class="reasons-title">
             <span>📋 Detail Alasan Algoritma (Condition Checklist):</span>
@@ -1339,13 +1539,55 @@
   <script>
     let activePatterns = [];
     let currentDirFilter = 'ALL';
+    let currentGradeFilter = 'ALL'; // 'ALL' | 'SSS' | 'SS+' | 'S+' | 'A+'
+    let sortByScore = false;
+    let activeTimeframe = 'M5';
     let previousSignalTimestamps = {};
 
     let currentView = 'radar'; // 'radar' | 'history'
     let currentHistoryFilter = 'ALL'; // 'ALL' | 'CONFIRMED' | 'INVALIDATED' | 'EXPIRED'
+    let currentHistoryTfFilter = 'ALL'; // 'ALL' | 'M1' | 'M5' | 'M15'
+    let currentHistoryGradeFilter = 'ALL'; // 'ALL' | 'SSS' | 'SS' | 'S' | 'A' | 'B'
     let historySignals = [];
     let hasInitializedFromSession = false;
     let toastTimeout = null;
+
+    function setGradeFilter(tier, btn) {
+      currentGradeFilter = tier;
+      document.querySelectorAll('#radarFilterGroup .filter-btn').forEach(b => {
+        if (b.id && b.id.startsWith('btnGradeFilter')) b.classList.remove('active');
+      });
+      if (btn) btn.classList.add('active');
+      lastSignalsSignature = null;
+      renderSignals();
+    }
+
+    function toggleScoreSort(btn) {
+      sortByScore = !sortByScore;
+      if (btn) btn.classList.toggle('active', sortByScore);
+      lastSignalsSignature = null;
+      renderSignals();
+    }
+
+    function setHistoryTfFilter(tf, btn) {
+      currentHistoryTfFilter = tf;
+      document.querySelectorAll('#historyFilterGroup .filter-btn').forEach(b => {
+        if (b.id && b.id.startsWith('btnHistTf')) b.classList.remove('active');
+      });
+      if (btn) btn.classList.add('active');
+      lastHistorySignature = null;
+      renderHistory();
+    }
+
+    function setHistoryGradeFilter(g, btn) {
+      currentHistoryGradeFilter = g;
+      document.querySelectorAll('#historyFilterGroup .filter-btn').forEach(b => {
+        if (b.id && b.id.startsWith('btnHistGrade')) b.classList.remove('active');
+      });
+      if (btn) btn.classList.add('active');
+      lastHistorySignature = null;
+      renderHistory();
+    }
 
     function showToast(message) {
       const toast = document.getElementById('sessionToast');
@@ -1413,21 +1655,30 @@
     function renderHistory() {
       const tbody = document.getElementById('historyTableBody');
       const emptyEl = document.getElementById('historyEmpty');
-      const tableWrapper = document.querySelector('.history-table-wrapper table');
       if (!tbody) return;
 
       // Bolt ⚡ Memoization: Skip table rebuilding if history signals haven't changed
-      const histKey = `${currentHistoryFilter}::${historySignals.length}::` + historySignals.map(s => 
-        `${s.event_id}_${s.status}_${s.execution_price}_${s.status_reason || ''}`
+      const histKey = `${currentHistoryFilter}::${currentHistoryTfFilter}::${currentHistoryGradeFilter}::${historySignals.length}::` + historySignals.map(s => 
+        `${s.event_id}_${s.status}_${s.grade || ''}_${s.grade_score || 0}_${s.execution_price}`
       ).join('|');
       if (histKey === lastHistorySignature) return;
       lastHistorySignature = histKey;
 
       // Filter signals
       const filtered = historySignals.filter(sig => {
-        if (currentHistoryFilter === 'ALL') return true;
-        const st = (sig.status || '').toUpperCase();
-        return st === currentHistoryFilter;
+        if (currentHistoryFilter !== 'ALL') {
+          const st = (sig.status || '').toUpperCase();
+          if (st !== currentHistoryFilter) return false;
+        }
+        if (currentHistoryTfFilter !== 'ALL') {
+          const tf = (sig.grade_timeframe || 'M5').toUpperCase();
+          if (tf !== currentHistoryTfFilter) return false;
+        }
+        if (currentHistoryGradeFilter !== 'ALL') {
+          const g = (sig.grade || 'B').toUpperCase();
+          if (g !== currentHistoryGradeFilter) return false;
+        }
+        return true;
       });
 
       // KPI Counters calculation
@@ -1440,6 +1691,17 @@
       const invalPct = total > 0 ? Math.round((invalCnt / total) * 100) : 0;
       const expPct = total > 0 ? Math.round((expCnt / total) * 100) : 0;
 
+      // Grade Distribution Counters
+      const sssCnt = historySignals.filter(s => (s.grade || '').toUpperCase() === 'SSS').length;
+      const ssCnt = historySignals.filter(s => (s.grade || '').toUpperCase() === 'SS').length;
+      const sCnt = historySignals.filter(s => (s.grade || '').toUpperCase() === 'S').length;
+      const aCnt = historySignals.filter(s => (s.grade || '').toUpperCase() === 'A').length;
+      const bCnt = historySignals.filter(s => ['B', 'C', 'D'].includes((s.grade || '').toUpperCase())).length;
+
+      const tfM1Cnt = historySignals.filter(s => (s.grade_timeframe || 'M5').toUpperCase() === 'M1').length;
+      const tfM5Cnt = historySignals.filter(s => (s.grade_timeframe || 'M5').toUpperCase() === 'M5').length;
+      const tfM15Cnt = historySignals.filter(s => (s.grade_timeframe || 'M5').toUpperCase() === 'M15').length;
+
       const kpiTot = document.getElementById('kpiTotalSignals');
       const kpiConf = document.getElementById('kpiConfirmed');
       const kpiInval = document.getElementById('kpiInvalidated');
@@ -1449,6 +1711,24 @@
       if (kpiConf) kpiConf.innerHTML = `${confCnt} <small style="font-size:11px; opacity:0.8;">(${confPct}%)</small>`;
       if (kpiInval) kpiInval.innerHTML = `${invalCnt} <small style="font-size:11px; opacity:0.8;">(${invalPct}%)</small>`;
       if (kpiExp) kpiExp.innerHTML = `${expCnt} <small style="font-size:11px; opacity:0.8;">(${expPct}%)</small>`;
+
+      const kpiSSS = document.getElementById('kpiGradeSSS');
+      const kpiSS = document.getElementById('kpiGradeSS');
+      const kpiS = document.getElementById('kpiGradeS');
+      const kpiA = document.getElementById('kpiGradeA');
+      const kpiB = document.getElementById('kpiGradeB');
+      if (kpiSSS) kpiSSS.innerText = `SSS: ${sssCnt}`;
+      if (kpiSS) kpiSS.innerText = `SS: ${ssCnt}`;
+      if (kpiS) kpiS.innerText = `S: ${sCnt}`;
+      if (kpiA) kpiA.innerText = `A: ${aCnt}`;
+      if (kpiB) kpiB.innerText = `B+: ${bCnt}`;
+
+      const elM1 = document.getElementById('kpiTfM1');
+      const elM5 = document.getElementById('kpiTfM5');
+      const elM15 = document.getElementById('kpiTfM15');
+      if (elM1) elM1.innerText = `M1: ${tfM1Cnt}`;
+      if (elM5) elM5.innerText = `M5: ${tfM5Cnt}`;
+      if (elM15) elM15.innerText = `M15: ${tfM15Cnt}`;
 
       // Update Filter buttons text with count
       const bAll = document.getElementById('btnHistFilterAll');
@@ -1485,6 +1765,10 @@
         else if (stVal === 'EXPIRED') stClass = 'status-expired';
         else if (stVal === 'PENDING_CONFIRMATION') stClass = 'status-pending';
 
+        const gTier = (sig.grade || 'B').toUpperCase();
+        const gScore = sig.grade_score != null ? Number(sig.grade_score).toFixed(1) : '-';
+        const gTf = sig.grade_timeframe || 'M5';
+
         const trigPx = sig.trigger_price != null ? Number(sig.trigger_price).toFixed(2) : '-';
         const execPx = sig.execution_price != null ? Number(sig.execution_price).toFixed(2) : trigPx;
         const invalPx = sig.invalidation_price != null ? Number(sig.invalidation_price).toFixed(2) : '-';
@@ -1499,7 +1783,9 @@
               <span class="history-pattern-name">#${String(sig.pattern_id).padStart(2, '0')} ${sig.family_name}</span>
               <span class="modal-category-badge" style="font-size:9px; padding:1px 5px; margin-left:5px;">${sig.pattern_role || 'ENTRY'}</span>
             </td>
+            <td style="text-align:center;"><span class="tf-badge">${gTf}</span></td>
             <td style="text-align:center;">${dirBadge}</td>
+            <td style="text-align:center;"><span class="grade-pill grade-${gTier.toLowerCase()}">${gTier} ${gScore}</span></td>
             <td class="history-px">${trigPx}</td>
             <td class="history-px" style="color:#98c379;">${execPx}</td>
             <td class="history-px" style="color:#e06c75;">${invalPx}</td>
@@ -1649,16 +1935,30 @@
       const grid = document.getElementById('signalGrid');
       const emptyEl = document.getElementById('radarEmpty');
 
-      // Filter: Only patterns with active BUY or SELL
-      const matched = activePatterns.filter(p => {
+      // Filter: Direction and Tier Grade
+      let matched = activePatterns.filter(p => {
         if (!p.active || p.direction === 'NONE') return false;
-        if (currentDirFilter === 'ALL') return true;
-        return p.direction === currentDirFilter;
+        if (currentDirFilter !== 'ALL' && p.direction !== currentDirFilter) return false;
+        
+        const g = (p.grade || (p.last_signal && p.last_signal.grade) || 'B').toUpperCase();
+        if (currentGradeFilter === 'SSS' && g !== 'SSS') return false;
+        if (currentGradeFilter === 'SS+' && !['SSS', 'SS'].includes(g)) return false;
+        if (currentGradeFilter === 'S+' && !['SSS', 'SS', 'S'].includes(g)) return false;
+        if (currentGradeFilter === 'A+' && !['SSS', 'SS', 'S', 'A'].includes(g)) return false;
+        return true;
       });
 
+      if (sortByScore) {
+        matched = [...matched].sort((a, b) => {
+          const scA = (a.grade_score != null ? a.grade_score : (a.last_signal ? a.last_signal.grade_score : 0)) || 0;
+          const scB = (b.grade_score != null ? b.grade_score : (b.last_signal ? b.last_signal.grade_score : 0)) || 0;
+          return scB - scA;
+        });
+      }
+
       // Bolt ⚡ Memoization: Skip expensive DOM innerHTML rebuild if signal state is unchanged
-      const sigKey = `${currentDirFilter}::${matched.length}::` + matched.map(p => 
-        `${p.id}_${p.direction}_${p.status}_${p.price_str}_${p.time_ago}_${p.status_reason || ''}_${p.last_signal ? p.last_signal.timestamp_ms : 0}`
+      const sigKey = `${currentDirFilter}::${currentGradeFilter}::${sortByScore}::${matched.length}::` + matched.map(p => 
+        `${p.id}_${p.direction}_${p.status}_${p.grade || ''}_${p.grade_score || 0}_${p.price_str}_${p.time_ago}_${p.status_reason || ''}_${p.last_signal ? p.last_signal.timestamp_ms : 0}`
       ).join('|');
       if (sigKey === lastSignalsSignature) return;
       lastSignalsSignature = sigKey;
@@ -1708,6 +2008,18 @@
         }
         const statusBadgeHtml = `<span class="status-pill ${statusBadgeClass}">${statusLabel}</span>`;
 
+        // Technical Grade & Breakdown
+        const sig = p.last_signal || {};
+        const gTier = (p.grade || sig.grade || 'B').toUpperCase();
+        const gScore = (p.grade_score != null ? p.grade_score : (sig.grade_score != null ? sig.grade_score : 70.0)).toFixed(1);
+        const gTf = p.grade_timeframe || sig.grade_timeframe || activeTimeframe || 'M5';
+        const bd = sig.grade_breakdown || {};
+        const bdPq = Math.round(bd.pattern_quality || 70);
+        const bdMs = Math.round(bd.market_structure || 70);
+        const bdLq = Math.round(bd.location_quality || 70);
+        const bdCc = Math.round(bd.candle_confirmation || 65);
+        const bdEq = Math.round(bd.execution_quality || 80);
+
         // Snippet text reflecting lifecycle
         let snippetPrefix = '<span class="check">[✓]</span>';
         let snippetText = "Kondisi matematis terpenuhi penuh.";
@@ -1720,6 +2032,8 @@
         } else if (statusVal === 'EXPIRED') {
           snippetPrefix = '<span style="color:#94a3b8; font-weight:800; margin-right:4px;">[⏱]</span>';
           snippetText = p.status_reason || (p.last_signal && p.last_signal.status_reason) || "Batas usia sinyal tercapai.";
+        } else if (sig.grade_reasons && sig.grade_reasons.length > 0) {
+          snippetText = sig.grade_reasons[0];
         } else if (p.last_signal && p.last_signal.reasons && p.last_signal.reasons.length > 0) {
           snippetText = p.last_signal.reasons[0];
         }
@@ -1730,6 +2044,8 @@
               <div class="card-left-meta">
                 <span class="pattern-id-pill">#${String(p.id).padStart(2, '0')}</span>
                 <span class="pattern-cat-pill">${p.category}</span>
+                <span class="tf-badge">${gTf}</span>
+                <span class="grade-pill grade-${gTier.toLowerCase()}">${gTier} ${gScore}</span>
                 ${statusBadgeHtml}
               </div>
               <span class="time-badge">${p.time_ago}</span>
@@ -1742,11 +2058,19 @@
               <span class="price-readout">${p.price_str}</span>
             </div>
 
+            <div class="grade-mini-strip">
+              <span title="Pattern Quality">PQ: ${bdPq}</span>
+              <span title="Market Structure">MS: ${bdMs}</span>
+              <span title="Location Quality">LQ: ${bdLq}</span>
+              <span title="Candle Confirmation">CC: ${bdCc}</span>
+              <span title="Execution Quality">EQ: ${bdEq}</span>
+            </div>
+
             <div class="reason-snippet">
               ${snippetPrefix}<span>${snippetText}</span>
             </div>
 
-            <div class="click-hint">Klik untuk detail alasan lengkap &rarr;</div>
+            <div class="click-hint">Klik untuk audit tier grade & alasan lengkap &rarr;</div>
           </div>
         `;
       }).join('');
@@ -1824,6 +2148,7 @@
         `;
       }
 
+      populateModalGrading(sig, p);
       document.getElementById('detailModal').classList.add('open');
     }
 
