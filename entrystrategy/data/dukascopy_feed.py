@@ -19,18 +19,25 @@ logger = logging.getLogger("EntryStrategy.DukascopyFeed")
 try:
     import builtins
     import requests as _requests
+    from typing import Any as _TypingAny
 
     _had_builtin_requests = hasattr(builtins, "requests")
+    _had_builtin_datafeed = hasattr(builtins, "DataFeed")
     if not _had_builtin_requests:
         builtins.requests = _requests
+    # dukascopy-python 5.0.0 imports DataFeed only under TYPE_CHECKING but
+    # still evaluates it in a runtime function annotation.
+    if not _had_builtin_datafeed:
+        builtins.DataFeed = _TypingAny
     try:
         import dukascopy_python as duka
         from dukascopy_python.instruments import I_XAU_USD
-        duka.requests = _requests
         DUKASCOPY_AVAILABLE = True
     finally:
         if not _had_builtin_requests:
             del builtins.requests
+        if not _had_builtin_datafeed:
+            del builtins.DataFeed
 except Exception as exc:
     duka = None
     I_XAU_USD = None
