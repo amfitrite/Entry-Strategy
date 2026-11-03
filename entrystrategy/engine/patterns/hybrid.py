@@ -1537,128 +1537,62 @@ class InvertedVReversalPattern(BasePattern):
         return None
 
 
-class HybridTickCandlePattern(BasePattern):
-    """Pola 40: Hybrid Impulse & Confirmation Pattern.
-    Sinergi multi-faktor penolakan candle dikonfirmasi oleh arah follow-through bar.
-    """
+class CandleRejectionConfluencePattern(BasePattern):
+    """40: Candle-only rejection + follow-through confluence."""
+
     def __init__(self):
         super().__init__(
             pattern_id=40,
-            name="Hybrid Candle Synergy",
-            category="Hybrid",
-            description="Sinergi multi-faktor: Candle Pin Bar diperkuat konfirmasi bar berikutnya.",
-            role=PatternRole.CONFIRMATION,
-            phenomenon="Sinergi multi-faktor penolakan candle dikonfirmasi oleh arah follow-through",
-            cooldown_ms=3000,
+            name="Candle Rejection Confluence",
+            category="Candle",
+            description="Pin-bar rejection pada candle sebelumnya yang dikonfirmasi close candle berikutnya searah pantulan.",
+            role=PatternRole.ENTRY,
+            phenomenon="Rejection wick pada level ekstrem dan candle follow-through pada timeframe yang sama",
+            cooldown_ms=4000,
         )
 
     def evaluate(self, buffer: MarketBuffer) -> Optional[EntrySignal]:
-        candles = buffer.get_recent_candles(2)
-        ticks = buffer.get_recent_ticks(20)
-        if len(ticks) >= 15 and candles:
-            c1 = candles[0]
-            t_now = ticks[-1]
-            upticks = sum(1 for i in range(1, len(ticks)) if ticks[i].mid > ticks[i - 1].mid)
-            downticks = sum(1 for i in range(1, len(ticks)) if ticks[i].mid < ticks[i - 1].mid)
-            total = max(1, upticks + downticks)
-            imbalance_up = upticks / total
-            imbalance_down = downticks / total
+        candles = buffer.get_recent_candles(3)
+        if len(candles) < 2:
+            return None
+        c0, c1 = candles[0], candles[1]
 
-            # Lower wick in c1 + high tick quote dominance upward
-            if c1.lower_wick >= (c1.range * 0.45) and imbalance_up >= 0.70:
-                ref_px = round(c1.low, 2)
-                trig_px = round(t_now.ask, 2)
-                inval_px = round(c1.low - 0.15, 2)
-                event_id = f"hybrid_tc_buy_{t_now.ts_ms}_{int(c1.timestamp.timestamp())}"
-                if self._is_event_deduplicated(event_id):
-                    return None
-                return EntrySignal(
-                    pattern_id=self.pattern_id,
-                    family_name=self.name,
-                    direction=SignalDirection.BUY,
-                    reference_price=ref_px,
-                    trigger_price=trig_px,
-                    invalidation_price=inval_px,
-                    pattern_role=self.role,
-                    phenomenon=self.phenomenon,
-                    event_id=event_id,
-                    price=trig_px,
-                    timestamp_ms=t_now.ts_ms,
-                    reasons=[
-                        f"Sinergi Hybrid Rejection + Quote Dominance: Ekor bawah C[1] {c1.lower_wick:.2f} pts",
-                        f"Konfirmasi Dominasi Uptick: {imbalance_up * 100:.1f}%",
-                    ],
-                    metrics={"candle_wick": round(c1.lower_wick, 2), "imbalance_up": round(imbalance_up, 2)},
-                )
-            # Upper wick in c1 + high tick quote dominance downward
-            if c1.upper_wick >= (c1.range * 0.45) and imbalance_down >= 0.70:
-                ref_px = round(c1.high, 2)
-                trig_px = round(t_now.bid, 2)
-                inval_px = round(c1.high + 0.15, 2)
-                event_id = f"hybrid_tc_sell_{t_now.ts_ms}_{int(c1.timestamp.timestamp())}"
-                if self._is_event_deduplicated(event_id):
-                    return None
-                return EntrySignal(
-                    pattern_id=self.pattern_id,
-                    family_name=self.name,
-                    direction=SignalDirection.SELL,
-                    reference_price=ref_px,
-                    trigger_price=trig_px,
-                    invalidation_price=inval_px,
-                    pattern_role=self.role,
-                    phenomenon=self.phenomenon,
-                    event_id=event_id,
-                    price=trig_px,
-                    timestamp_ms=t_now.ts_ms,
-                    reasons=[
-                        f"Sinergi Hybrid Rejection + Quote Dominance: Ekor atas C[1] {c1.upper_wick:.2f} pts",
-                        f"Konfirmasi Dominasi Downtick: {imbalance_down * 100:.1f}%",
-                    ],
-                    metrics={"candle_wick": round(c1.upper_wick, 2), "imbalance_down": round(imbalance_down, 2)},
-                )
-
-        # M5 Candle-based evaluation (pin bar on c1 confirmed by c0 follow-through)
-        candles_3 = buffer.get_recent_candles(3)
-        if len(candles_3) >= 2:
-            c0, c1 = candles_3[0], candles_3[1]
-            if c1.lower_wick >= (c1.range * 0.45) and c0.is_bullish and c0.close > c1.close:
-                event_id = f"m5_hybrid_buy_{int(c0.timestamp.timestamp())}"
-                if not self._is_event_deduplicated(event_id):
-                    return EntrySignal(
-                        pattern_id=self.pattern_id,
-                        family_name=self.name,
-                        direction=SignalDirection.BUY,
-                        reference_price=round(c1.low, 2),
-                        trigger_price=round(c0.close, 2),
-                        invalidation_price=round(c1.low - 0.15, 2),
-                        pattern_role=self.role,
-                        phenomenon=self.phenomenon,
-                        event_id=event_id,
-                        price=round(c0.close, 2),
-                        timestamp_ms=buffer.current_time_ms,
-                        reasons=[
-                            f"Sinergi M5: Pin bar penolakan bawah ({c1.lower_wick:.2f} pts)",
-                            f"Dikonfirmasi follow-through candle bullish M5 ({c0.close:.2f})",
-                        ],
-                    )
-            if c1.upper_wick >= (c1.range * 0.45) and c0.is_bearish and c0.close < c1.close:
-                event_id = f"m5_hybrid_sell_{int(c0.timestamp.timestamp())}"
-                if not self._is_event_deduplicated(event_id):
-                    return EntrySignal(
-                        pattern_id=self.pattern_id,
-                        family_name=self.name,
-                        direction=SignalDirection.SELL,
-                        reference_price=round(c1.high, 2),
-                        trigger_price=round(c0.close, 2),
-                        invalidation_price=round(c1.high + 0.15, 2),
-                        pattern_role=self.role,
-                        phenomenon=self.phenomenon,
-                        event_id=event_id,
-                        price=round(c0.close, 2),
-                        timestamp_ms=buffer.current_time_ms,
-                        reasons=[
-                            f"Sinergi M5: Pin bar penolakan atas ({c1.upper_wick:.2f} pts)",
-                            f"Dikonfirmasi follow-through candle bearish M5 ({c0.close:.2f})",
-                        ],
-                    )
+        if c1.lower_wick >= c1.range * 0.45 and c0.is_bullish and c0.close > c1.close:
+            return EntrySignal(
+                pattern_id=self.pattern_id,
+                family_name=self.name,
+                direction=SignalDirection.BUY,
+                reference_price=round(c1.low, 2),
+                trigger_price=round(c0.close, 2),
+                invalidation_price=round(c1.low - 0.15, 2),
+                pattern_role=self.role,
+                phenomenon=self.phenomenon,
+                event_id=f"candle_rejection_buy_{int(c0.timestamp.timestamp())}",
+                price=round(c0.close, 2),
+                timestamp_ms=buffer.current_time_ms,
+                reasons=[
+                    f"Lower rejection wick {c1.lower_wick:.2f} pts pada candle sebelumnya",
+                    f"Follow-through bullish close {c0.close:.2f} di atas close rejection {c1.close:.2f}",
+                ],
+                metrics={"rejection_wick": round(c1.lower_wick, 2), "rejection_low": round(c1.low, 2)},
+            )
+        if c1.upper_wick >= c1.range * 0.45 and c0.is_bearish and c0.close < c1.close:
+            return EntrySignal(
+                pattern_id=self.pattern_id,
+                family_name=self.name,
+                direction=SignalDirection.SELL,
+                reference_price=round(c1.high, 2),
+                trigger_price=round(c0.close, 2),
+                invalidation_price=round(c1.high + 0.15, 2),
+                pattern_role=self.role,
+                phenomenon=self.phenomenon,
+                event_id=f"candle_rejection_sell_{int(c0.timestamp.timestamp())}",
+                price=round(c0.close, 2),
+                timestamp_ms=buffer.current_time_ms,
+                reasons=[
+                    f"Upper rejection wick {c1.upper_wick:.2f} pts pada candle sebelumnya",
+                    f"Follow-through bearish close {c0.close:.2f} di bawah close rejection {c1.close:.2f}",
+                ],
+                metrics={"rejection_wick": round(c1.upper_wick, 2), "rejection_high": round(c1.high, 2)},
+            )
         return None
