@@ -95,8 +95,13 @@ class EntryStrategyService:
         self.symbol = tick.symbol
         self.buffer.add_tick(tick)
 
-        # Do not fire 5000 pattern evaluations for historical catch-up ticks
-        if not is_history:
+        # Update signal lifecycles against live price
+        now_ms = int(time.time() * 1000)
+        with self._lock:
+            self._update_all_lifecycles(self.latest_price, now_ms, self.latest_spread)
+
+        # Only evaluate on tick stream if tick mode is explicitly enabled
+        if self.enable_ticks and not is_history:
             self._evaluate_patterns()
 
     def _on_bar_completed(self, candle: Candle, is_history: bool = False):
@@ -219,12 +224,7 @@ class EntryStrategyService:
                 time_ago_str = "IDLE"
                 px_str = ""
 
-                # If ticks are disabled, mark Tick patterns as DISABLED
-                if not self.enable_ticks and p["category"] == "Tick":
-                    status_str = "DISABLED"
-                    status_reason = "Mode ticks dinonaktifkan"
-                    time_ago_str = "TICKS OFF"
-                elif last_sig:
+                if last_sig:
                     elapsed_sec = max(0.0, (now_ms - last_sig.timestamp_ms) / 1000.0)
                     status_str = last_sig.status.value
                     status_reason = last_sig.status_reason

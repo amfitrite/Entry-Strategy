@@ -1,174 +1,127 @@
-"""Unit tests for Multi-Timeframe (M1/M5) and Tick Mode Toggle functionality."""
+"""Unit tests for M5 Candle-Based Strategy Engine with Ticks Disabled."""
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import pytest
 from entrystrategy.config import AppConfig
 from entrystrategy.core.buffer import MarketBuffer
-from entrystrategy.core.models import Candle, TickData
-from entrystrategy.data.mt5_bridge import TickToBarAggregator
+from entrystrategy.core.models import Candle, TickData, SignalDirection
+from entrystrategy.data.mt5_bridge import TickToBarAggregator, MT5BridgeServer
 from entrystrategy.service import EntryStrategyService
 from entrystrategy.gui.app import MatrixWindowAPI
+from entrystrategy.engine.registry import PatternRegistry
 
 
-def test_default_config_is_m5_and_ticks_enabled():
-    """Verify system defaults are M5 and ticks mode enabled."""
+def test_default_config_is_m5_and_ticks_disabled():
+    """Verify system defaults are strictly M5 timeframe and ticks disabled."""
     config = AppConfig()
     assert config.timeframe == "M5"
-    assert config.enable_ticks is True
+    assert config.enable_ticks is False
 
     buf = MarketBuffer()
     assert buf.active_timeframe == "M5"
-    assert buf.enable_ticks is True
 
 
-def test_market_buffer_timeframe_isolation():
-    """Verify M1 and M5 candles are kept isolated and query reflects active timeframe."""
-    buf = MarketBuffer()
-    assert buf.active_timeframe == "M5"
-
-    now = datetime.now(timezone.utc)
-    c_m1_1 = Candle(timestamp=now, open=2000.0, high=2002.0, low=1999.0, close=2001.0, timeframe="M1")
-    c_m1_2 = Candle(timestamp=now, open=2001.0, high=2005.0, low=2000.0, close=2004.0, timeframe="M1")
-    c_m5_1 = Candle(timestamp=now, open=1995.0, high=2005.0, low=1994.0, close=2003.0, timeframe="M5")
-
-    buf.add_completed_candle(c_m1_1)
-    buf.add_completed_candle(c_m1_2)
-    buf.add_completed_candle(c_m5_1)
-
-    # When active timeframe is M5
-    assert buf.total_candles == 1
-    candles_m5 = buf.get_recent_candles(5)
-    assert len(candles_m5) == 1
-    assert candles_m5[0].close == 2003.0
-
-    # Switch to M1
-    buf.set_active_timeframe("M1")
-    assert buf.active_timeframe == "M1"
-    assert buf.total_candles == 2
-    candles_m1 = buf.get_recent_candles(5)
-    assert len(candles_m1) == 2
-    # Index 0 is the newest candle (c_m1_2: 2004.0), index 1 is previous (c_m1_1: 2001.0)
-    assert candles_m1[0].close == 2004.0
-    assert candles_m1[1].close == 2001.0
-
-    # Switch back to M5
-    buf.set_active_timeframe("M5")
-    assert buf.active_timeframe == "M5"
-    assert buf.total_candles == 1
-
-
-def test_market_buffer_tick_toggle():
-    """Verify disabling ticks hides tick slices while preserving latest price/spread."""
-    buf = MarketBuffer()
-    now_ms = int(time.time() * 1000)
-
-    t1 = TickData(ts_ms=now_ms - 200, bid=2740.0, ask=2740.5, last=2740.25, volume=1.0)
-    t2 = TickData(ts_ms=now_ms, bid=2741.0, ask=2741.5, last=2741.25, volume=1.0)
-
-    buf.add_tick(t1)
-    buf.add_tick(t2)
-
-    assert len(buf.get_recent_ticks(5)) == 2
-    assert buf.latest_tick is not None
-    assert buf.latest_tick.last == 2741.25
-
-    # Disable ticks
-    buf.set_enable_ticks(False)
-    assert buf.enable_ticks is False
-    # Tick slice returns empty so tick patterns don't trigger
-    assert len(buf.get_recent_ticks(5)) == 0
-    # Latest tick readout for header still remains valid
-    assert buf.latest_tick is not None
-    assert buf.latest_tick.last == 2741.25
-
-    # Re-enable ticks
-    buf.set_enable_ticks(True)
-    assert len(buf.get_recent_ticks(5)) == 2
-
-
-def test_tick_to_bar_aggregator_m1_and_m5():
-    """Verify aggregator produces both M1 and M5 completed bars via callback."""
-    completed_bars = []
-    agg = TickToBarAggregator(on_bar_completed=lambda b: completed_bars.append(b))
-
-    # Base epoch aligned to 300s (M5) boundary
-    base_epoch = 1700000000.0
-    t1 = TickData(ts_ms=int(base_epoch * 1000), bid=2700.0, ask=2701.0, last=2700.5, volume=10.0)
-    # 65 seconds later -> triggers M1 bar close
-    t2 = TickData(ts_ms=int((base_epoch + 65) * 1000), bid=2705.0, ask=2706.0, last=2705.5, volume=15.0)
-
-    agg.process_tick(t1)
-    agg.process_tick(t2)
-
-    assert len(completed_bars) == 1
-    assert completed_bars[0].timeframe == "M1"
-    assert completed_bars[0].open == 2700.5
-
-    # 305 seconds later -> triggers M5 bar close
-    t3 = TickData(ts_ms=int((base_epoch + 305) * 1000), bid=2710.0, ask=2711.0, last=2710.5, volume=20.0)
-    agg.process_tick(t3)
-
-    m5_bars = [b for b in completed_bars if b.timeframe == "M5"]
-    assert len(m5_bars) == 1
-    assert m5_bars[0].open == 2700.5
-
-
-def test_service_timeframe_and_tick_toggle():
-    """Verify EntryStrategyService handles set_timeframe and toggle_ticks_mode cleanly."""
-    config = AppConfig(enable_simulation=False, bridge_port=5579)
+def test_all_40_patterns_active_in_matrix_state_with_ticks_disabled():
+    """Verify none of the 40 patterns are marked DISABLED when ticks are disabled."""
+    config = AppConfig(enable_simulation=False, enable_ticks=False, bridge_port=5579)
     service = EntryStrategyService(config, start_servers=False)
 
-    # Initial state check
     state = service.get_matrix_state()
     assert state["config"]["timeframe"] == "M5"
-    assert state["config"]["enable_ticks"] is True
-
-    # Switch timeframe to M1
-    res_tf = service.set_timeframe("M1")
-    assert res_tf["success"] is True
-    assert res_tf["timeframe"] == "M1"
-
-    state = service.get_matrix_state()
-    assert state["config"]["timeframe"] == "M1"
-
-    # Disable ticks
-    res_ticks = service.toggle_ticks_mode(False)
-    assert res_ticks["success"] is True
-    assert res_ticks["enable_ticks"] is False
-
-    state = service.get_matrix_state()
     assert state["config"]["enable_ticks"] is False
 
-    # Check that Tick category patterns are labeled DISABLED
-    tick_cards = [p for p in state["patterns"] if p["category"] == "Tick"]
-    assert len(tick_cards) > 0
-    for card in tick_cards:
-        assert card["status"] == "DISABLED"
-        assert "dinonaktifkan" in card["status_reason"]
-        assert card["time_ago"] == "TICKS OFF"
-
-    # Re-enable ticks
-    res_ticks_on = service.toggle_ticks_mode(True)
-    assert res_ticks_on["success"] is True
-    assert res_ticks_on["enable_ticks"] is True
-
-    state = service.get_matrix_state()
-    assert state["config"]["enable_ticks"] is True
+    # Check all 40 pattern cards: none should be marked DISABLED
+    patterns = state["patterns"]
+    assert len(patterns) == 40
+    for p in patterns:
+        assert p["status"] != "DISABLED"
+        assert p["time_ago"] != "TICKS OFF"
 
 
-def test_matrix_window_api_timeframe_and_ticks():
-    """Verify MatrixWindowAPI exposes JSON endpoints for set_timeframe and toggle_ticks_mode."""
-    config = AppConfig(enable_simulation=False, bridge_port=5580)
-    service = EntryStrategyService(config, start_servers=False)
-    api = MatrixWindowAPI(service)
+def test_patterns_evaluate_on_m5_candles_without_ticks():
+    """Verify patterns 11-17, 22, 23, 24, 40 evaluate and fire signals purely using M5 candles."""
+    registry = PatternRegistry()
+    buf = MarketBuffer()
+    buf.set_enable_ticks(False)  # Ticks disabled
+    assert len(buf.get_recent_ticks()) == 0
 
-    # Test set_timeframe
-    res = api.set_timeframe("M1")
-    assert '"timeframe": "M1"' in res
+    now = datetime.now(timezone.utc)
 
-    # Test toggle_ticks_mode
-    res_off = api.toggle_ticks_mode(False)
-    assert '"enable_ticks": false' in res_off
+    # 1. Test Pola 11: Momentum on M5 candles
+    p11 = registry.get_pattern(11)
+    c_prev = Candle(timestamp=now - timedelta(minutes=10), open=2740.0, high=2742.0, low=2739.0, close=2741.0, timeframe="M5")
+    c_mom = Candle(timestamp=now - timedelta(minutes=5), open=2741.0, high=2744.5, low=2740.5, close=2744.0, timeframe="M5")
+    buf.add_completed_candle(c_prev)
+    buf.add_completed_candle(c_mom)
 
-    res_on = api.toggle_ticks_mode()
-    assert '"enable_ticks": true' in res_on
+    sig11 = p11.evaluate(buf)
+    assert sig11 is not None
+    assert sig11.direction == SignalDirection.BUY
+    assert "Momentum Candle M5" in sig11.reasons[0]
+
+    # 2. Test Pola 14: Volume Burst on M5 candles
+    buf_vol = MarketBuffer()
+    buf_vol.set_enable_ticks(False)
+    p14 = registry.get_pattern(14)
+    for i in range(4, 0, -1):
+        c = Candle(timestamp=now - timedelta(minutes=i * 5), open=2740.0, high=2742.0, low=2739.0, close=2741.0, tick_volume=100.0, timeframe="M5")
+        buf_vol.add_completed_candle(c)
+    # Burst candle: volume 350 vs avg 100
+    c_burst = Candle(timestamp=now, open=2741.0, high=2745.0, low=2740.5, close=2744.5, tick_volume=350.0, timeframe="M5")
+    buf_vol.add_completed_candle(c_burst)
+
+    sig14 = p14.evaluate(buf_vol)
+    assert sig14 is not None
+    assert sig14.direction == SignalDirection.BUY
+    assert "Ledakan Volume M5" in sig14.reasons[0]
+
+    # 3. Test Pola 22: Consecutive Movement on M5 candles
+    buf_consec = MarketBuffer()
+    buf_consec.set_enable_ticks(False)
+    p22 = registry.get_pattern(22)
+    c_c1 = Candle(timestamp=now - timedelta(minutes=15), open=2738.0, high=2740.0, low=2737.5, close=2739.5, timeframe="M5")
+    c_c2 = Candle(timestamp=now - timedelta(minutes=10), open=2739.5, high=2742.0, low=2739.0, close=2741.8, timeframe="M5")
+    c_c3 = Candle(timestamp=now - timedelta(minutes=5), open=2741.8, high=2744.5, low=2741.5, close=2744.0, timeframe="M5")
+    buf_consec.add_completed_candle(c_c1)
+    buf_consec.add_completed_candle(c_c2)
+    buf_consec.add_completed_candle(c_c3)
+
+    sig22 = p22.evaluate(buf_consec)
+    assert sig22 is not None
+    assert sig22.direction == SignalDirection.BUY
+    assert "3 Candle M5 Berturut-turut Bullish" in sig22.reasons[0]
+
+    # 4. Test Pola 40: Hybrid M5 Candle Pin Bar & Follow-through
+    buf_hyb = MarketBuffer()
+    buf_hyb.set_enable_ticks(False)
+    p40 = registry.get_pattern(40)
+    # Pin bar with long lower wick (low 2735.0, close 2740.0, range 5.0, lower wick 4.0 >= 45%)
+    c_pin = Candle(timestamp=now - timedelta(minutes=10), open=2739.0, high=2740.0, low=2735.0, close=2739.5, timeframe="M5")
+    c_follow = Candle(timestamp=now - timedelta(minutes=5), open=2739.5, high=2743.0, low=2739.0, close=2742.5, timeframe="M5")
+    buf_hyb.add_completed_candle(c_pin)
+    buf_hyb.add_completed_candle(c_follow)
+
+    sig40 = p40.evaluate(buf_hyb)
+    assert sig40 is not None
+    assert sig40.direction == SignalDirection.BUY
+    assert "Sinergi M5: Pin bar" in sig40.reasons[0]
+
+
+def test_bridge_server_parses_m5_bar_command():
+    """Verify MT5BridgeServer parses #BAR:M5 lines sent by EA on M5 bar close."""
+    completed_bars = []
+    server = MT5BridgeServer(on_bar_completed=lambda c: completed_bars.append(c))
+
+    now_epoch = 1700000000
+    bar_line = f"#BAR:M5,{now_epoch},2740.00,2745.50,2739.00,2744.50,520,120,1.4\n"
+    server._parse_line(bar_line)
+
+    assert len(completed_bars) == 1
+    candle = completed_bars[0]
+    assert candle.timeframe == "M5"
+    assert candle.open == 2740.00
+    assert candle.high == 2745.50
+    assert candle.low == 2739.00
+    assert candle.close == 2744.50
+    assert candle.tick_volume == 520.0
+    assert candle.spread == 1.4

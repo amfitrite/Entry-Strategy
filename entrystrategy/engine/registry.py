@@ -67,16 +67,11 @@ class PatternRegistry:
     def get_all_patterns(self) -> List[BasePattern]:
         return [self._patterns[pid] for pid in sorted(self._patterns.keys())]
 
-    def evaluate_all(self, buffer: MarketBuffer, enable_ticks: bool = True) -> List[EntrySignal]:
-        """Evaluates patterns against current market buffer state.
-        When enable_ticks is False, tick-based micro patterns are skipped.
-        """
+    def evaluate_all(self, buffer: MarketBuffer, enable_ticks: bool = False) -> List[EntrySignal]:
+        """Evaluates all 40 patterns against current market buffer state using M5 candles."""
         fired_signals: List[EntrySignal] = []
         for pid in sorted(self._patterns.keys()):
             pattern = self._patterns[pid]
-            # Bypass tick strategies when tick mode is disabled
-            if not enable_ticks and pattern.category == "Tick":
-                continue
             signal = pattern.check(buffer)
             if signal:
                 fired_signals.append(signal)

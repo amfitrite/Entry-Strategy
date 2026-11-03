@@ -14,6 +14,7 @@ int  client_socket = INVALID_HANDLE;
 bool meta_sent = false;
 bool is_connecting = false;
 datetime last_retry_time = 0;
+datetime last_m5_bar_time = 0;
 
 int OnInit()
 {
@@ -96,6 +97,32 @@ bool SendRawString(string data)
     return true;
 }
 
+void SendHistoricalM5Bars()
+{
+    MqlRates rates[];
+    ArraySetAsSeries(rates, false);
+    int copied = CopyRates(_Symbol, PERIOD_M5, 1, 100, rates);
+    if(copied > 0)
+    {
+        Print("[EntryStrategy] Streaming ", copied, " historical M5 candles to port ", InpPort, "...");
+        for(int i = 0; i < copied; i++)
+        {
+            string barLine = StringFormat("#BAR:M5,%I64d,%.5f,%.5f,%.5f,%.5f,%.0f,%.0f,%.1f\n",
+                (long)rates[i].time,
+                rates[i].open,
+                rates[i].high,
+                rates[i].low,
+                rates[i].close,
+                (double)rates[i].tick_volume,
+                (double)rates[i].real_volume,
+                (double)rates[i].spread
+            );
+            SendRawString(barLine);
+        }
+        last_m5_bar_time = iTime(_Symbol, PERIOD_M5, 0);
+    }
+}
+
 void SendMeta()
 {
     string symLine = StringFormat("#SYMBOL:%s\n", _Symbol);
@@ -106,6 +133,7 @@ void SendMeta()
     string metaLine = StringFormat("#META:%d,%f\n", digits, point);
     SendRawString(metaLine);
     
+    SendHistoricalM5Bars();
     meta_sent = true;
 }
 
@@ -125,18 +153,44 @@ void OnTick()
         if(client_socket == INVALID_HANDLE) return;
     }
 
-    // Ensure valid millisecond timestamp
+    // Check if a new M5 bar closed
+    datetime cur_m5_time = iTime(_Symbol, PERIOD_M5, 0);
+    if(last_m5_bar_time == 0)
+    {
+        last_m5_bar_time = cur_m5_time;
+    }
+    else if(cur_m5_time > last_m5_bar_time)
+    {
+        last_m5_bar_time = cur_m5_time;
+        MqlRates closed_bar[];
+        ArraySetAsSeries(closed_bar, true);
+        if(CopyRates(_Symbol, PERIOD_M5, 1, 1, closed_bar) > 0)
+        {
+            string barLine = StringFormat("#BAR:M5,%I64d,%.5f,%.5f,%.5f,%.5f,%.0f,%.0f,%.1f\n",
+                (long)closed_bar[0].time,
+                closed_bar[0].open,
+                closed_bar[0].high,
+                closed_bar[0].low,
+                closed_bar[0].close,
+                (double)closed_bar[0].tick_volume,
+                (double)closed_bar[0].real_volume,
+                (double)closed_bar[0].spread
+            );
+            SendRawString(barLine);
+            Print("[EntryStrategy] New M5 bar closed: Open=", closed_bar[0].open, " Close=", closed_bar[0].close);
+        }
+    }
+
+    // Send tick for real-time bid/ask/price readout
     long ts_msc = tick.time_msc;
     if(ts_msc <= 0)
     {
         ts_msc = (long)tick.time * 1000 + (GetMicrosecondCount() % 1000000) / 1000;
     }
 
-    // High precision volume
     double vol = tick.volume_real > 0 ? tick.volume_real : (double)tick.volume;
     if(vol <= 0) vol = 1.0;
 
-    // Format: time_msc,bid,ask,last,volume,flags
     string tickLine = StringFormat("%I64d,%.5f,%.5f,%.5f,%.2f,%d\n",
         ts_msc,
         tick.bid,
