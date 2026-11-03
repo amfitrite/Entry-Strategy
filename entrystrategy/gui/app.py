@@ -39,6 +39,8 @@ if sys.platform == "win32":
     user32.GetWindowThreadProcessId.argtypes = [ctypes.wintypes.HWND, ctypes.POINTER(ctypes.wintypes.DWORD)]
     user32.IsWindowVisible.argtypes = [ctypes.wintypes.HWND]
     user32.IsWindowVisible.restype = ctypes.wintypes.BOOL
+    user32.IsIconic.argtypes = [ctypes.wintypes.HWND]
+    user32.IsIconic.restype = ctypes.wintypes.BOOL
     user32.FindWindowW.argtypes = [ctypes.wintypes.LPCWSTR, ctypes.wintypes.LPCWSTR]
     user32.FindWindowW.restype = ctypes.wintypes.HWND
     user32.SetWindowPos.argtypes = [
@@ -63,15 +65,16 @@ if sys.platform == "win32":
         ]
 
 
-def _get_app_hwnd(window_title: str) -> Optional[int]:
+def _get_app_hwnd(window_title: Optional[str] = None) -> Optional[int]:
     """Finds the top-level visible window HWND for current process on Windows."""
     if sys.platform != "win32":
         return None
 
-    # 1. Direct title lookup
-    h1 = user32.FindWindowW(None, window_title)
-    if h1 and user32.IsWindowVisible(h1):
-        return h1
+    # 1. Direct title lookup if provided
+    if window_title:
+        h1 = user32.FindWindowW(None, window_title)
+        if h1 and user32.IsWindowVisible(h1):
+            return h1
 
     # 2. Process-specific window enumeration with 64-bit safe callback
     pid = os.getpid()
@@ -215,21 +218,37 @@ class MatrixWindowAPI:
         }
         try:
             if self._prev_rect:
-                info["x"], info["y"], info["width"], info["height"] = self._prev_rect
+                rx, ry, rw, rh = self._prev_rect
+                if rx > -1000 and ry > -1000 and rw >= 200 and rh >= 30:
+                    info["x"], info["y"], info["width"], info["height"] = rx, ry, rw, rh
             elif self._window:
                 hwnd = _get_app_hwnd(self._window.title)
                 if sys.platform == "win32" and hwnd:
+                    # Guard: If window is currently minimized (IsIconic), NEVER capture minimized coordinates (-32000)!
+                    if hasattr(user32, "IsIconic") and user32.IsIconic(hwnd):
+                        return info
                     rect = ctypes.wintypes.RECT()
                     if user32.GetWindowRect(hwnd, ctypes.byref(rect)):
-                        info["x"] = rect.left
-                        info["y"] = rect.top
-                        info["width"] = rect.right - rect.left
-                        info["height"] = rect.bottom - rect.top
+                        w = rect.right - rect.left
+                        h = rect.bottom - rect.top
+                        # Guard against Windows minimized parking coordinates (-32000, -32000)
+                        if rect.left > -1000 and rect.top > -1000 and w >= 200 and h >= 30:
+                            info["x"] = rect.left
+                            info["y"] = rect.top
+                            info["width"] = w
+                            info["height"] = h
                 else:
-                    info["x"] = getattr(self._window, "x", 100)
-                    info["y"] = getattr(self._window, "y", 100)
-                    info["width"] = getattr(self._window, "width", 1380)
-                    info["height"] = getattr(self._window, "height", 860)
+                    x = getattr(self._window, "x", None)
+                    y = getattr(self._window, "y", None)
+                    w = getattr(self._window, "width", None)
+                    h = getattr(self._window, "height", None)
+                    if x is not None and y is not None and x > -1000 and y > -1000:
+                        info["x"] = x
+                        info["y"] = y
+                        if w and w >= 200:
+                            info["width"] = w
+                        if h and h >= 30:
+                            info["height"] = h
         except Exception as e:
             logger.debug(f"Error querying window geometry: {e}")
         return info
@@ -383,11 +402,43 @@ def launch_gui(service: Optional[EntryStrategyService] = None):
     init_x = saved_window.get("x")
     init_y = saved_window.get("y")
 
+    # Sanitize x and y: Reject off-screen / minimized coordinates (-32000 on Windows)
+    if init_x is not None:
+        try:
+            val_x = int(init_x)
+            if val_x <= -1000 or val_x > 30000:
+                init_x = None
+        except Exception:
+            init_x = None
+
+    if init_y is not None:
+        try:
+            val_y = int(init_y)
+            if val_y <= -1000 or val_y > 30000:
+                init_y = None
+        except Exception:
+            init_y = None
+
+    # Sanitize dimensions: must be reasonable desktop window size
+    try:
+        final_w = int(init_width) if init_width else entry_service.config.window_width
+        if final_w < 600 or final_w > 10000:
+            final_w = entry_service.config.window_width
+    except Exception:
+        final_w = entry_service.config.window_width
+
+    try:
+        final_h = int(init_height) if init_height else entry_service.config.window_height
+        if final_h < 400 or final_h > 10000:
+            final_h = entry_service.config.window_height
+    except Exception:
+        final_h = entry_service.config.window_height
+
     create_kwargs: Dict[str, Any] = {
         "title": entry_service.config.window_title,
         "url": str(html_file.resolve()),
-        "width": max(600, int(init_width)),
-        "height": max(400, int(init_height)),
+        "width": final_w,
+        "height": final_h,
         "frameless": entry_service.config.frameless,
         "resizable": True,
         "min_size": (250, 36),

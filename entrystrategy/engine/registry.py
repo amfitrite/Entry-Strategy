@@ -4,11 +4,13 @@ from entrystrategy.engine.base import BasePattern
 from entrystrategy.core.models import EntrySignal
 from entrystrategy.core.buffer import MarketBuffer
 import entrystrategy.engine.patterns as p
+from entrystrategy.engine.grading import GradingEngine
 
 
 class PatternRegistry:
-    def __init__(self):
+    def __init__(self, grading_engine: Optional[GradingEngine] = None):
         self._patterns: Dict[int, BasePattern] = {}
+        self.grading_engine = grading_engine or GradingEngine()
         self._register_all_40_families()
 
     def _register_all_40_families(self):
@@ -90,6 +92,9 @@ class PatternRegistry:
 
                 # 2. P0 Fix: Ensure execution_price accounts for Bid/Ask spread
                 signal.execution_price = buffer.get_execution_price(signal.direction, signal.trigger_price)
+
+                # 3. Dynamic Technical Tier Grading (GradingEngine)
+                self.grading_engine.grade_signal(signal, buffer, buffer.active_timeframe)
 
                 fired_signals.append(signal)
         return fired_signals
