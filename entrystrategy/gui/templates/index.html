@@ -899,13 +899,15 @@
         <span style="color:#999;">SPREAD:</span>
         <strong id="spreadText" style="color:#fff;">1.4</strong>
       </div>
-      <!-- Timeframe Badge: Strictly Candle M5 from MT5 -->
-      <div class="pill" title="Timeframe Analisis MT5">
-        <span style="color:#94a3b8; font-size:11px; font-weight:700;">TF:</span>
-        <strong style="color:var(--accent-blue); font-weight:800; font-size:12px;">M5</strong>
+      <!-- Interactive Timeframe Selector: M1 and M5 (Default M5) -->
+      <div class="tf-pill-container" title="Pilih Timeframe Analisis Candle MT5 (M1 / M5)">
+        <span style="color:#94a3b8; font-size:10.5px; font-weight:800; margin-left:3px; margin-right:2px;">TF:</span>
+        <button class="btn-tf" id="btnTfM1" onclick="selectTimeframe('M1')">M1</button>
+        <button class="btn-tf active" id="btnTfM5" onclick="selectTimeframe('M5')">M5</button>
       </div>
-      <div class="pill" title="Jumlah Candle M5 Terkumpul dari MT5">
-        <span style="color:#94a3b8; font-size:11px; font-weight:700;">M5 BARS:</span>
+
+      <div class="pill" title="Jumlah Candle Terkumpul dari MT5">
+        <span style="color:#94a3b8; font-size:10.5px; font-weight:700;">BARS:</span>
         <strong id="barsCountText" style="color:#fff; font-weight:800; font-size:12px;">0</strong>
       </div>
 
@@ -1375,9 +1377,22 @@
           }
 
           if (state && state.config) {
+            const tf = state.config.timeframe || 'M5';
+            const btnM1 = document.getElementById('btnTfM1');
+            const btnM5 = document.getElementById('btnTfM5');
+            if (btnM1 && btnM5) {
+              if (tf === 'M1') {
+                btnM1.classList.add('active');
+                btnM5.classList.remove('active');
+              } else {
+                btnM5.classList.add('active');
+                btnM1.classList.remove('active');
+              }
+            }
+
             const barsEl = document.getElementById('barsCountText');
             if (barsEl) {
-              barsEl.innerText = `${state.config.total_candles || 0} bars`;
+              barsEl.innerText = `${state.config.total_candles || 0} ${tf}`;
             }
           }
 

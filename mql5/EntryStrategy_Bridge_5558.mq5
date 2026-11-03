@@ -14,6 +14,7 @@ int  client_socket = INVALID_HANDLE;
 bool meta_sent = false;
 bool is_connecting = false;
 datetime last_retry_time = 0;
+datetime last_m1_bar_time = 0;
 datetime last_m5_bar_time = 0;
 
 int OnInit()
@@ -97,25 +98,50 @@ bool SendRawString(string data)
     return true;
 }
 
-void SendHistoricalM5Bars()
+void SendHistoricalBars()
 {
-    MqlRates rates[];
-    ArraySetAsSeries(rates, false);
-    int copied = CopyRates(_Symbol, PERIOD_M5, 1, 100, rates);
-    if(copied > 0)
+    // 1. Stream 100 historical M1 candles
+    MqlRates rates_m1[];
+    ArraySetAsSeries(rates_m1, false);
+    int copied_m1 = CopyRates(_Symbol, PERIOD_M1, 1, 100, rates_m1);
+    if(copied_m1 > 0)
     {
-        Print("[EntryStrategy] Streaming ", copied, " historical M5 candles to port ", InpPort, "...");
-        for(int i = 0; i < copied; i++)
+        Print("[EntryStrategy] Streaming ", copied_m1, " historical M1 candles to port ", InpPort, "...");
+        for(int i = 0; i < copied_m1; i++)
+        {
+            string barLine = StringFormat("#BAR:M1,%I64d,%.5f,%.5f,%.5f,%.5f,%.0f,%.0f,%.1f\n",
+                (long)rates_m1[i].time,
+                rates_m1[i].open,
+                rates_m1[i].high,
+                rates_m1[i].low,
+                rates_m1[i].close,
+                (double)rates_m1[i].tick_volume,
+                (double)rates_m1[i].real_volume,
+                (double)rates_m1[i].spread
+            );
+            SendRawString(barLine);
+        }
+        last_m1_bar_time = iTime(_Symbol, PERIOD_M1, 0);
+    }
+
+    // 2. Stream 100 historical M5 candles
+    MqlRates rates_m5[];
+    ArraySetAsSeries(rates_m5, false);
+    int copied_m5 = CopyRates(_Symbol, PERIOD_M5, 1, 100, rates_m5);
+    if(copied_m5 > 0)
+    {
+        Print("[EntryStrategy] Streaming ", copied_m5, " historical M5 candles to port ", InpPort, "...");
+        for(int i = 0; i < copied_m5; i++)
         {
             string barLine = StringFormat("#BAR:M5,%I64d,%.5f,%.5f,%.5f,%.5f,%.0f,%.0f,%.1f\n",
-                (long)rates[i].time,
-                rates[i].open,
-                rates[i].high,
-                rates[i].low,
-                rates[i].close,
-                (double)rates[i].tick_volume,
-                (double)rates[i].real_volume,
-                (double)rates[i].spread
+                (long)rates_m5[i].time,
+                rates_m5[i].open,
+                rates_m5[i].high,
+                rates_m5[i].low,
+                rates_m5[i].close,
+                (double)rates_m5[i].tick_volume,
+                (double)rates_m5[i].real_volume,
+                (double)rates_m5[i].spread
             );
             SendRawString(barLine);
         }
@@ -133,7 +159,7 @@ void SendMeta()
     string metaLine = StringFormat("#META:%d,%f\n", digits, point);
     SendRawString(metaLine);
     
-    SendHistoricalM5Bars();
+    SendHistoricalBars();
     meta_sent = true;
 }
 
@@ -153,6 +179,33 @@ void OnTick()
         if(client_socket == INVALID_HANDLE) return;
     }
 
+    // Check if a new M1 bar closed
+    datetime cur_m1_time = iTime(_Symbol, PERIOD_M1, 0);
+    if(last_m1_bar_time == 0)
+    {
+        last_m1_bar_time = cur_m1_time;
+    }
+    else if(cur_m1_time > last_m1_bar_time)
+    {
+        last_m1_bar_time = cur_m1_time;
+        MqlRates closed_m1[];
+        ArraySetAsSeries(closed_m1, true);
+        if(CopyRates(_Symbol, PERIOD_M1, 1, 1, closed_m1) > 0)
+        {
+            string barLine = StringFormat("#BAR:M1,%I64d,%.5f,%.5f,%.5f,%.5f,%.0f,%.0f,%.1f\n",
+                (long)closed_m1[0].time,
+                closed_m1[0].open,
+                closed_m1[0].high,
+                closed_m1[0].low,
+                closed_m1[0].close,
+                (double)closed_m1[0].tick_volume,
+                (double)closed_m1[0].real_volume,
+                (double)closed_m1[0].spread
+            );
+            SendRawString(barLine);
+        }
+    }
+
     // Check if a new M5 bar closed
     datetime cur_m5_time = iTime(_Symbol, PERIOD_M5, 0);
     if(last_m5_bar_time == 0)
@@ -162,22 +215,21 @@ void OnTick()
     else if(cur_m5_time > last_m5_bar_time)
     {
         last_m5_bar_time = cur_m5_time;
-        MqlRates closed_bar[];
-        ArraySetAsSeries(closed_bar, true);
-        if(CopyRates(_Symbol, PERIOD_M5, 1, 1, closed_bar) > 0)
+        MqlRates closed_m5[];
+        ArraySetAsSeries(closed_m5, true);
+        if(CopyRates(_Symbol, PERIOD_M5, 1, 1, closed_m5) > 0)
         {
             string barLine = StringFormat("#BAR:M5,%I64d,%.5f,%.5f,%.5f,%.5f,%.0f,%.0f,%.1f\n",
-                (long)closed_bar[0].time,
-                closed_bar[0].open,
-                closed_bar[0].high,
-                closed_bar[0].low,
-                closed_bar[0].close,
-                (double)closed_bar[0].tick_volume,
-                (double)closed_bar[0].real_volume,
-                (double)closed_bar[0].spread
+                (long)closed_m5[0].time,
+                closed_m5[0].open,
+                closed_m5[0].high,
+                closed_m5[0].low,
+                closed_m5[0].close,
+                (double)closed_m5[0].tick_volume,
+                (double)closed_m5[0].real_volume,
+                (double)closed_m5[0].spread
             );
             SendRawString(barLine);
-            Print("[EntryStrategy] New M5 bar closed: Open=", closed_bar[0].open, " Close=", closed_bar[0].close);
         }
     }
 

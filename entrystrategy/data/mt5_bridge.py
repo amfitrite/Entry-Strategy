@@ -410,6 +410,7 @@ class MT5NativePoller:
         self._tick_counter_window = 0
         self._last_sec_time = time.time()
         self.last_ts_msc = 0
+        self.last_completed_m1_time = 0
         self.last_completed_m5_time = 0
 
     def start(self) -> bool:
@@ -468,7 +469,31 @@ class MT5NativePoller:
     def _preload_historical_candles(self, symbol: str):
         """Loads last 100 closed M1 and M5 bars to populate pattern engine context."""
         try:
-            # Preload M5 bars (Primary Timeframe directly from MT5)
+            # 1. Preload M1 bars
+            rates_m1 = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_M1, 0, 100)
+            if rates_m1 is not None and len(rates_m1) > 1 and self.on_bar_completed:
+                logger.info(f"Preloading {len(rates_m1)-1} historical M1 candles for {symbol} directly from MT5...")
+                for r in rates_m1[:-1]:
+                    candle = Candle(
+                        timestamp=datetime.fromtimestamp(r["time"], tz=timezone.utc),
+                        open=float(r["open"]),
+                        high=float(r["high"]),
+                        low=float(r["low"]),
+                        close=float(r["close"]),
+                        tick_volume=float(r["tick_volume"]),
+                        real_volume=float(r["real_volume"]),
+                        spread=float(r["spread"]),
+                        symbol=symbol,
+                        timeframe="M1",
+                        is_closed=True,
+                    )
+                    try:
+                        self.on_bar_completed(candle, is_history=True)
+                    except TypeError:
+                        self.on_bar_completed(candle)
+                self.last_completed_m1_time = int(rates_m1[-2]["time"])
+
+            # 2. Preload M5 bars (Default Timeframe directly from MT5)
             rates_m5 = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_M5, 0, 100)
             if rates_m5 is not None and len(rates_m5) > 1 and self.on_bar_completed:
                 logger.info(f"Preloading {len(rates_m5)-1} historical M5 candles for {symbol} directly from MT5...")
@@ -516,6 +541,34 @@ class MT5NativePoller:
                     time.sleep(2.0)
                     continue
 
+            # Poll closed M1 candle directly from MT5
+            try:
+                rates_m1 = mt5.copy_rates_from_pos(self.active_symbol, mt5.TIMEFRAME_M1, 0, 3)
+                if rates_m1 is not None and len(rates_m1) >= 2:
+                    closed_r = rates_m1[-2]
+                    closed_t = int(closed_r["time"])
+                    if self.last_completed_m1_time == 0:
+                        self.last_completed_m1_time = closed_t
+                    elif closed_t > self.last_completed_m1_time:
+                        self.last_completed_m1_time = closed_t
+                        candle_m1 = Candle(
+                            timestamp=datetime.fromtimestamp(closed_t, tz=timezone.utc),
+                            open=float(closed_r["open"]),
+                            high=float(closed_r["high"]),
+                            low=float(closed_r["low"]),
+                            close=float(closed_r["close"]),
+                            tick_volume=float(closed_r["tick_volume"]),
+                            real_volume=float(closed_r["real_volume"]),
+                            spread=float(closed_r["spread"]),
+                            symbol=self.active_symbol,
+                            timeframe="M1",
+                            is_closed=True,
+                        )
+                        if self.on_bar_completed:
+                            self.on_bar_completed(candle_m1)
+            except Exception as e:
+                logger.debug(f"Error checking MT5 M1 rates: {e}")
+
             # Poll closed M5 candle directly from MT5
             try:
                 rates_m5 = mt5.copy_rates_from_pos(self.active_symbol, mt5.TIMEFRAME_M5, 0, 3)
@@ -526,7 +579,7 @@ class MT5NativePoller:
                         self.last_completed_m5_time = closed_t
                     elif closed_t > self.last_completed_m5_time:
                         self.last_completed_m5_time = closed_t
-                        candle = Candle(
+                        candle_m5 = Candle(
                             timestamp=datetime.fromtimestamp(closed_t, tz=timezone.utc),
                             open=float(closed_r["open"]),
                             high=float(closed_r["high"]),
@@ -539,9 +592,8 @@ class MT5NativePoller:
                             timeframe="M5",
                             is_closed=True,
                         )
-                        logger.info(f"New completed M5 bar from MT5: Open={candle.open}, Close={candle.close}")
                         if self.on_bar_completed:
-                            self.on_bar_completed(candle)
+                            self.on_bar_completed(candle_m5)
             except Exception as e:
                 logger.debug(f"Error checking MT5 M5 rates: {e}")
 

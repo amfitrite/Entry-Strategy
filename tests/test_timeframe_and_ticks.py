@@ -125,3 +125,25 @@ def test_bridge_server_parses_m5_bar_command():
     assert candle.close == 2744.50
     assert candle.tick_volume == 520.0
     assert candle.spread == 1.4
+
+
+def test_timeframe_switching_between_m1_and_m5():
+    """Verify switching between M1 and M5 timeframes updates buffer context cleanly."""
+    config = AppConfig(enable_simulation=False, enable_ticks=False, bridge_port=5581)
+    service = EntryStrategyService(config, start_servers=False)
+
+    assert service.active_timeframe == "M5"
+
+    # Switch to M1
+    res1 = service.set_timeframe("M1")
+    assert res1["success"] is True
+    assert res1["timeframe"] == "M1"
+    assert service.active_timeframe == "M1"
+    assert service.get_matrix_state()["config"]["timeframe"] == "M1"
+
+    # Switch back to M5
+    res5 = service.set_timeframe("M5")
+    assert res5["success"] is True
+    assert res5["timeframe"] == "M5"
+    assert service.active_timeframe == "M5"
+    assert service.get_matrix_state()["config"]["timeframe"] == "M5"
