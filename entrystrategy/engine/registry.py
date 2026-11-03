@@ -1,4 +1,4 @@
-"""Registry managing all 40 Strategy Families."""
+"""Registry managing 40 candle-based M1/M5 entry strategy families."""
 from typing import Dict, List, Optional
 from entrystrategy.engine.base import BasePattern
 from entrystrategy.core.models import EntrySignal
@@ -25,20 +25,20 @@ class PatternRegistry:
             p.MicroPullbackPattern(),
             p.MicroTrendReversalPattern(),
             # 11 - 20
-            p.TickMomentumPattern(),
-            p.TickReversalPattern(),
-            p.TickImbalancePattern(),
-            p.TickBurstPattern(),
-            p.TickExhaustionPattern(),
-            p.PriceVelocityPattern(),
-            p.PriceAccelerationPattern(),
+            p.ChangeOfCharacterPattern(),
+            p.BreakOfStructurePattern(),
+            p.CandleDisplacementPattern(),
+            p.BreakoutRetestPattern(),
+            p.FairValueGapPattern(),
+            p.FairValueGapRetestPattern(),
+            p.OrderBlockRetestPattern(),
             p.MicroRangeExpansionPattern(),
             p.MicroRangeCompressionPattern(),
             p.VolatilityBurstPattern(),
             # 21 - 30
             p.VolatilityContractionPattern(),
-            p.ConsecutivePriceMovementPattern(),
-            p.AlternatingTickPattern(),
+            p.TrendPullbackPattern(),
+            p.DonchianBreakoutPattern(),
             p.RejectionPattern(),
             p.WickPattern(),
             p.BodyExpansionPattern(),
@@ -68,7 +68,7 @@ class PatternRegistry:
         return [self._patterns[pid] for pid in sorted(self._patterns.keys())]
 
     def evaluate_all(self, buffer: MarketBuffer, enable_ticks: bool = False) -> List[EntrySignal]:
-        """Evaluates all 40 patterns against current market buffer state using active timeframe candles."""
+        """Evaluates all 40 candle-based patterns against the active M1/M5 timeframe."""
         fired_signals: List[EntrySignal] = []
         now_ms = buffer.current_time_ms
         for pid in sorted(self._patterns.keys()):
