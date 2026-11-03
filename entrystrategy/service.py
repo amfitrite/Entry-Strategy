@@ -18,14 +18,14 @@ class EntryStrategyService:
     def __init__(self, config: Optional[AppConfig] = None, start_servers: bool = True):
         self.config = config or AppConfig()
         self.active_timeframe = getattr(self.config, "timeframe", "M5").upper()
-        self.enable_ticks = getattr(self.config, "enable_ticks", False)
+        self.enable_ticks = False  # strategy engine is permanently candle-only
 
         self.buffer = MarketBuffer(
             tick_capacity=self.config.tick_buffer_size,
             candle_capacity=self.config.candle_buffer_size,
             default_timeframe=self.active_timeframe,
         )
-        self.buffer.enable_ticks = self.enable_ticks
+        self.buffer.set_enable_ticks(False)
         self.registry = PatternRegistry()
         
         self.recent_signals: deque = deque(maxlen=100)
@@ -90,9 +90,7 @@ class EntryStrategyService:
         with self._lock:
             self._update_all_lifecycles(self.latest_price, now_ms, self.latest_spread)
 
-        # Only evaluate on tick stream if tick mode is explicitly enabled
-        if self.enable_ticks and not is_history:
-            self._evaluate_patterns()
+        # Tick stream updates quotes/lifecycle only; strategy evaluation waits for completed candles.
 
     def _on_bar_completed(self, candle: Candle, is_history: bool = False):
         candle_tf = (candle.timeframe or "").upper()
@@ -107,8 +105,7 @@ class EntryStrategyService:
             self.latest_price = tick.mid
             self.latest_spread = tick.spread
             self.buffer.add_tick(tick)
-            if self.enable_ticks:
-                self._evaluate_patterns()
+            # No strategy evaluation on ticks; wait for completed M1/M5 candle.
 
     def _on_sim_bar(self, candle: Candle):
         if not self.feed_connected:
@@ -140,7 +137,7 @@ class EntryStrategyService:
         with self._lock:
             self._update_all_lifecycles(self.latest_price, now_ms, self.latest_spread)
 
-        fired = self.registry.evaluate_all(self.buffer, enable_ticks=self.enable_ticks)
+        fired = self.registry.evaluate_all(self.buffer, enable_ticks=False)
         if fired:
             with self._lock:
                 for sig in fired:
@@ -186,25 +183,14 @@ class EntryStrategyService:
         return {"success": True, "timeframe": self.active_timeframe, "candle_count": self.buffer.total_candles}
 
     def toggle_ticks_mode(self, enabled: Optional[bool] = None) -> Dict[str, Any]:
-        """Enables or disables tick-based pattern evaluations."""
-        with self._lock:
-            if enabled is None:
-                self.enable_ticks = not self.enable_ticks
-            else:
-                self.enable_ticks = bool(enabled)
-            self.buffer.enable_ticks = self.enable_ticks
-
-            # If ticks disabled, deactivate any lingering tick pattern signals
-            if not self.enable_ticks:
-                for pid, p in self.registry._patterns.items():
-                    if p.category == "Tick":
-                        sig = self.latest_signals_by_pattern.get(pid)
-                        if sig and sig.is_alive:
-                            sig.status = SignalStatus.EXPIRED
-                            sig.status_reason = "Mode ticks dinonaktifkan"
-        self._evaluate_patterns()
-        logger.info(f"Tick analysis mode set to: {'ENABLED' if self.enable_ticks else 'DISABLED'}")
-        return {"success": True, "enable_ticks": self.enable_ticks}
+        """Compatibility endpoint: tick-based strategy evaluation has been removed."""
+        self.enable_ticks = False
+        self.buffer.set_enable_ticks(False)
+        return {
+            "success": False,
+            "enable_ticks": False,
+            "error": "Mode tick strategy sudah dihapus. Analisis entry hanya memakai candle M1/M5 yang sudah close.",
+        }
 
     def get_matrix_state(self) -> Dict[str, Any]:
         """Provides complete state for UI rendering in a single fast JSON packet."""
@@ -284,7 +270,7 @@ class EntryStrategyService:
                 "symbol": self.symbol,
                 "price": round(self.latest_price, 2),
                 "spread": round(self.latest_spread, 2),
-                "tps": 1 if (self.enable_ticks and self.feed_connected) else 0,
+                "tps": 0,
                 "total_ticks": tot_ticks,
                 "total_candles": self.buffer.total_candles,
             }
@@ -294,7 +280,8 @@ class EntryStrategyService:
                 "feed": feed_info,
                 "config": {
                     "timeframe": self.active_timeframe,
-                    "enable_ticks": self.enable_ticks,
+                    "enable_ticks": False,
+                    "analysis_mode": "CANDLE_ONLY",
                     "total_candles": self.buffer.total_candles,
                 },
                 "stats": {
