@@ -1409,11 +1409,19 @@
       if (shouldPersist) persistUserPreferences();
     }
 
+    let lastHistorySignature = null;
     function renderHistory() {
       const tbody = document.getElementById('historyTableBody');
       const emptyEl = document.getElementById('historyEmpty');
       const tableWrapper = document.querySelector('.history-table-wrapper table');
       if (!tbody) return;
+
+      // Bolt ⚡ Memoization: Skip table rebuilding if history signals haven't changed
+      const histKey = `${currentHistoryFilter}::${historySignals.length}::` + historySignals.map(s => 
+        `${s.event_id}_${s.status}_${s.execution_price}_${s.status_reason || ''}`
+      ).join('|');
+      if (histKey === lastHistorySignature) return;
+      lastHistorySignature = histKey;
 
       // Filter signals
       const filtered = historySignals.filter(sig => {
@@ -1636,6 +1644,7 @@
       }
     }
 
+    let lastSignalsSignature = null;
     function renderSignals() {
       const grid = document.getElementById('signalGrid');
       const emptyEl = document.getElementById('radarEmpty');
@@ -1646,6 +1655,13 @@
         if (currentDirFilter === 'ALL') return true;
         return p.direction === currentDirFilter;
       });
+
+      // Bolt ⚡ Memoization: Skip expensive DOM innerHTML rebuild if signal state is unchanged
+      const sigKey = `${currentDirFilter}::${matched.length}::` + matched.map(p => 
+        `${p.id}_${p.direction}_${p.status}_${p.price_str}_${p.time_ago}_${p.status_reason || ''}_${p.last_signal ? p.last_signal.timestamp_ms : 0}`
+      ).join('|');
+      if (sigKey === lastSignalsSignature) return;
+      lastSignalsSignature = sigKey;
 
       document.getElementById('signalCountText').innerText = `${matched.length} Sinyal Terpenuhi`;
 
