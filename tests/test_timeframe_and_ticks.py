@@ -1,4 +1,4 @@
-"""Unit tests for M5 Candle-Based Strategy Engine with Dukascopy Live Feed."""
+"""Unit tests for candle-only M1/M5 strategy evaluation and Dukascopy quote feed."""
 import time
 from datetime import datetime, timezone, timedelta
 import pytest
@@ -11,8 +11,8 @@ from entrystrategy.gui.app import MatrixWindowAPI
 from entrystrategy.engine.registry import PatternRegistry
 
 
-def test_default_config_is_m5_and_ticks_disabled():
-    """Verify system defaults are strictly M5 timeframe and ticks disabled."""
+def test_default_config_is_m5_and_candle_only():
+    """Verify the strategy engine defaults to M5 and permanently disables tick triggers."""
     config = AppConfig()
     assert config.timeframe == "M5"
     assert config.enable_ticks is False
@@ -21,8 +21,8 @@ def test_default_config_is_m5_and_ticks_disabled():
     assert buf.active_timeframe == "M5"
 
 
-def test_all_40_patterns_active_in_matrix_state_with_ticks_disabled():
-    """Verify none of the 40 patterns are marked DISABLED when ticks are disabled."""
+def test_all_40_patterns_active_in_candle_only_matrix_state():
+    """Verify all 40 candle-based patterns are enabled in the matrix."""
     config = AppConfig(enable_simulation=False, enable_ticks=False)
     service = EntryStrategyService(config, start_servers=False)
 
@@ -38,8 +38,8 @@ def test_all_40_patterns_active_in_matrix_state_with_ticks_disabled():
         assert p["status"] in ("IDLE", "ACTIVE", "PENDING_CONFIRMATION", "CONFIRMED", "INVALIDATED", "EXPIRED")
 
 
-def test_patterns_evaluate_on_m5_candles_without_ticks():
-    """Verify patterns evaluate and trigger using only M5 candles when ticks are disabled."""
+def test_patterns_evaluate_on_m5_completed_candles():
+    """Verify patterns evaluate and trigger using completed M5 candles only."""
     buf = MarketBuffer(enable_ticks=False, active_timeframe="M5")
     registry = PatternRegistry()
 
@@ -158,3 +158,44 @@ def test_timeframe_switching_between_m1_and_m5():
     assert res5["timeframe"] == "M5"
     assert service.active_timeframe == "M5"
     assert service.get_matrix_state()["config"]["timeframe"] == "M5"
+
+
+def test_tick_quotes_cannot_change_candle_entry_trigger():
+    """Tick quotes may price execution, but cannot create or alter candle-pattern triggers."""
+    now = datetime.now(timezone.utc)
+    candles = [
+        Candle(timestamp=now - timedelta(minutes=10), open=2740.0, high=2745.0, low=2739.0, close=2744.0, timeframe="M5"),
+        Candle(timestamp=now - timedelta(minutes=5), open=2744.2, high=2748.0, low=2743.8, close=2747.5, timeframe="M5"),
+    ]
+
+    candle_only = MarketBuffer(enable_ticks=False, active_timeframe="M5")
+    candle_plus_quote = MarketBuffer(enable_ticks=True, active_timeframe="M5")
+    for candle in candles:
+        candle_only.add_completed_candle(candle)
+        candle_plus_quote.add_completed_candle(candle)
+
+    # Add an intentionally extreme quote. If a strategy reads the quote,
+    # its trigger price/direction would differ from the candle-only result.
+    ts = int(now.timestamp() * 1000)
+    candle_plus_quote.add_tick(TickData(ts_ms=ts, bid=9999.0, ask=10000.0, last=9999.5))
+
+    registry = PatternRegistry()
+    signal_without_quote = registry.get_pattern(7).evaluate(candle_only)
+    registry.get_pattern(7).reset()
+    signal_with_quote = registry.get_pattern(7).evaluate(candle_plus_quote)
+
+    assert signal_without_quote is not None
+    assert signal_with_quote is not None
+    assert signal_with_quote.direction == signal_without_quote.direction
+    assert signal_with_quote.trigger_price == signal_without_quote.trigger_price
+    assert signal_with_quote.reference_price == signal_without_quote.reference_price
+
+
+def test_tick_strategy_toggle_is_permanently_removed():
+    service = EntryStrategyService(AppConfig(enable_simulation=False), start_servers=False)
+    result = service.toggle_ticks_mode(True)
+    assert result["success"] is False
+    assert result["enable_ticks"] is False
+    assert service.buffer.latest_tick is None
+    assert service.buffer.get_recent_ticks() == []
+    service.stop()
