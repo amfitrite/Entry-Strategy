@@ -152,6 +152,8 @@ def test_ui_template_tier_icons_and_apex_sorting():
     assert ".status-expired" in html
     assert "card-status-pending-confirmation" in html
     assert "card-status-confirmed" in html
+    assert "row-status-pending" in html
+    assert "opacity: 0.65" in html, "Pending semi-transparency style missing"
     assert "kpiPending" in html
     assert "btnHistFilterPending" in html
     assert "⏳" in html, "⏳ Pending icon missing"

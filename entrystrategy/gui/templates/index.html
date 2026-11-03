@@ -478,11 +478,11 @@
       box-shadow: 0 0 8px rgba(16, 185, 129, 0.35);
     }
     .status-pending {
-      background: rgba(245, 158, 11, 0.28);
+      background: rgba(245, 158, 11, 0.18);
       color: #fbbf24;
-      border: 1.5px solid #f59e0b;
-      box-shadow: 0 0 10px rgba(245, 158, 11, 0.4);
-      animation: pending-glow 2s infinite ease-in-out;
+      border: 1.5px dashed #f59e0b;
+      box-shadow: 0 0 8px rgba(245, 158, 11, 0.25);
+      animation: pending-glow 2.5s infinite ease-in-out;
     }
     .status-confirmed {
       background: rgba(6, 182, 212, 0.26);
@@ -503,18 +503,29 @@
     }
 
     @keyframes pending-glow {
-      0%, 100% { border-color: #f59e0b; box-shadow: 0 0 8px rgba(245, 158, 11, 0.35); }
-      50% { border-color: #fbbf24; box-shadow: 0 0 14px rgba(251, 191, 36, 0.6); }
+      0%, 100% { border-color: #f59e0b; box-shadow: 0 0 6px rgba(245, 158, 11, 0.25); }
+      50% { border-color: #fbbf24; box-shadow: 0 0 12px rgba(251, 191, 36, 0.45); }
     }
 
     /* Signal Card Status Accents (Clear visual distinction on Radar) */
-    .signal-card.card-status-pending-confirmation {
-      border-top: 3px solid #f59e0b !important;
-      box-shadow: 0 0 12px rgba(245, 158, 11, 0.15);
+    .signal-card.card-status-pending-confirmation,
+    .signal-card.card-status-pending {
+      border-top: 3px dashed #f59e0b !important;
+      opacity: 0.65;
+      box-shadow: 0 0 8px rgba(245, 158, 11, 0.12);
+      filter: saturate(85%);
+      transition: opacity 0.2s ease, filter 0.2s ease, transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .signal-card.card-status-pending-confirmation:hover,
+    .signal-card.card-status-pending:hover {
+      opacity: 0.95;
+      filter: saturate(100%);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
     }
     .signal-card.card-status-confirmed {
       border-top: 3px solid #06b6d4 !important;
       box-shadow: 0 0 14px rgba(6, 182, 212, 0.25);
+      opacity: 1;
     }
     .signal-card.card-status-invalidated {
       border-top: 3px solid #ef4444 !important;
@@ -527,6 +538,23 @@
     }
     .signal-card.card-status-active {
       border-top: 3px solid #10b981 !important;
+      opacity: 1;
+    }
+
+    /* History Journal Row Status Styles */
+    tr.row-status-pending-confirmation,
+    tr.row-status-pending {
+      opacity: 0.65;
+      background: rgba(245, 158, 11, 0.04);
+      transition: opacity 0.15s ease, background 0.15s ease;
+    }
+    tr.row-status-pending-confirmation:hover,
+    tr.row-status-pending:hover {
+      opacity: 0.98;
+      background: rgba(245, 158, 11, 0.10);
+    }
+    tr.row-status-confirmed {
+      opacity: 1;
     }
 
     .time-badge {
@@ -1898,9 +1926,10 @@
         const timeDisplay = sig.time_str || (sig.timestamp_ms ? new Date(sig.timestamp_ms).toLocaleTimeString() : '-');
 
         const safeEventId = (sig.event_id || '').replace(/'/g, "\\'");
+        const rowStatusClass = `row-status-${stVal.toLowerCase().replace(/_/g, '-')}`;
 
         return `
-          <tr onclick="openSignalDetailModal(${sig.pattern_id}, '${safeEventId}')">
+          <tr class="history-row ${rowStatusClass}" onclick="openSignalDetailModal(${sig.pattern_id}, '${safeEventId}')">
             <td class="history-time">${timeDisplay}</td>
             <td>
               <span class="history-pattern-name">#${String(sig.pattern_id).padStart(2, '0')} ${sig.family_name}</span>
