@@ -22,8 +22,7 @@ class CandlestickReversalPattern(BasePattern):
         if len(candles) < 2:
             return None
         c0, c1 = candles[0], candles[1]
-        tick = buffer.latest_tick
-        ts = tick.ts_ms if tick else buffer.current_time_ms
+        ts = buffer.current_time_ms
 
         # Bullish Engulfing
         if c1.is_bearish and c0.is_bullish and c1.body >= 0.20:
@@ -96,8 +95,7 @@ class CandlestickContinuationPattern(BasePattern):
         if len(candles) < 3:
             return None
         c0, c1, c2 = candles[0], candles[1], candles[2]
-        tick = buffer.latest_tick
-        ts = tick.ts_ms if tick else buffer.current_time_ms
+        ts = buffer.current_time_ms
 
         # Three White Soldiers: healthy progressive closes, controlled wicks, non-blowoff body
         if c0.is_bullish and c1.is_bullish and c2.is_bullish:
@@ -169,8 +167,7 @@ class MultiCandleReversalPattern(BasePattern):
         if len(candles) < 2:
             return None
         c0, c1 = candles[0], candles[1]
-        tick = buffer.latest_tick
-        ts = tick.ts_ms if tick else buffer.current_time_ms
+        ts = buffer.current_time_ms
 
         # Bullish 2-Bar Reversal: c1 dropped with substantial body, c0 recovers >= 85%
         if c1.is_bearish and c1.body >= 0.35 and c0.is_bullish:
@@ -241,8 +238,7 @@ class InsideBarBreakoutPattern(BasePattern):
         if len(candles) < 3:
             return None
         c0, c1, c2 = candles[0], candles[1], candles[2]  # c2: mother bar, c1: inside bar, c0: breakout bar
-        tick = buffer.latest_tick
-        ts = tick.ts_ms if tick else buffer.current_time_ms
+        ts = buffer.current_time_ms
 
         is_c1_inside = (c1.high <= c2.high) and (c1.low >= c2.low) and (c2.range >= 0.40)
         if not is_c1_inside:
@@ -311,8 +307,7 @@ class OutsideBarBreakoutPattern(BasePattern):
         if len(candles) < 3:
             return None
         c0, c1, c2 = candles[0], candles[1], candles[2]  # c1: outside bar engulfing c2, c0: trigger bar
-        tick = buffer.latest_tick
-        ts = tick.ts_ms if tick else buffer.current_time_ms
+        ts = buffer.current_time_ms
 
         is_c1_outside = (c1.high > c2.high) and (c1.low < c2.low) and (c1.range >= 0.50)
         if not is_c1_outside:
@@ -382,8 +377,7 @@ class MomentumPattern(BasePattern):
             return None
         c0 = candles[0]
         avg_range = sum(c.range for c in candles[1:4]) / 3.0
-        tick = buffer.latest_tick
-        ts = tick.ts_ms if tick else buffer.current_time_ms
+        ts = buffer.current_time_ms
 
         # Bullish Momentum
         if c0.is_bullish and c0.range >= (avg_range * 1.5) and c0.body >= (c0.range * 0.70):
@@ -452,8 +446,7 @@ class VolatilityContractionPattern(BasePattern):
         if len(candles) < 4:
             return None
         c0, c1, c2, c3 = candles[0], candles[1], candles[2], candles[3]
-        tick = buffer.latest_tick
-        ts = tick.ts_ms if tick else buffer.current_time_ms
+        ts = buffer.current_time_ms
 
         # Setup: Contraction in previous 3 bars (c3 > c2 > c1)
         is_contracting = (c3.range > c2.range > c1.range) and (c1.range <= c3.range * 0.55)
@@ -522,8 +515,7 @@ class WickPattern(BasePattern):
         if not candles:
             return None
         c0 = candles[0]
-        tick = buffer.latest_tick
-        ts = tick.ts_ms if tick else buffer.current_time_ms
+        ts = buffer.current_time_ms
 
         if c0.range < 0.35:
             return None
@@ -591,8 +583,7 @@ class BodyExpansionPattern(BasePattern):
         if len(candles) < 3:
             return None
         c0, c1, c2 = candles[0], candles[1], candles[2]
-        tick = buffer.latest_tick
-        ts = tick.ts_ms if tick else buffer.current_time_ms
+        ts = buffer.current_time_ms
 
         # Bullish Expansion
         if c0.is_bullish and c1.is_bullish and c2.is_bullish and c2.body >= 0.20:
@@ -659,8 +650,7 @@ class BodyContractionPattern(BasePattern):
         if len(candles) < 4:
             return None
         c0, c1, c2, c3 = candles[0], candles[1], candles[2], candles[3]
-        tick = buffer.latest_tick
-        ts = tick.ts_ms if tick else buffer.current_time_ms
+        ts = buffer.current_time_ms
 
         # Setup Bullish Diminishing: c3 > c2 > c1 (all bullish, but bodies contracting sharply)
         if c3.is_bullish and c2.is_bullish and c1.is_bullish and c3.body >= 0.50:
@@ -731,8 +721,7 @@ class StaircasePattern(BasePattern):
         if len(candles) < 4:
             return None
         c0, c1, c2, c3 = candles[0], candles[1], candles[2], candles[3]
-        tick = buffer.latest_tick
-        ts = tick.ts_ms if tick else buffer.current_time_ms
+        ts = buffer.current_time_ms
 
         # Bullish staircase: strict higher highs and higher lows across 4 bars
         if (c0.high > c1.high > c2.high > c3.high) and (c0.low > c1.low > c2.low > c3.low):
@@ -799,8 +788,7 @@ class CandleSequencePattern(BasePattern):
         if len(candles) < 4:
             return None
         c0, c1, c2, c3 = candles[0], candles[1], candles[2], candles[3]
-        tick = buffer.latest_tick
-        ts = tick.ts_ms if tick else buffer.current_time_ms
+        ts = buffer.current_time_ms
 
         # Bullish Turnaround Sequence: Bear -> Bear -> Doji/Small Bar -> Strong Bull Rebound
         if c3.is_bearish and c2.is_bearish and c1.is_doji and c0.is_bullish:
