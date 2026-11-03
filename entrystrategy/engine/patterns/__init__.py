@@ -1,4 +1,5 @@
-"""Patterns package exporting all 40 Strategy Families."""
+"""Pattern package: 40 candle-based entry strategy families for M1/M5."""
+
 from entrystrategy.engine.patterns.candlestick import (
     CandlestickReversalPattern,
     CandlestickContinuationPattern,
@@ -13,16 +14,16 @@ from entrystrategy.engine.patterns.candlestick import (
     StaircasePattern,
     CandleSequencePattern,
 )
-from entrystrategy.engine.patterns.tick_micro import (
-    TickMomentumPattern,
-    TickReversalPattern,
-    TickImbalancePattern,
-    TickBurstPattern,
-    TickExhaustionPattern,
-    PriceVelocityPattern,
-    PriceAccelerationPattern,
-    ConsecutivePriceMovementPattern,
-    AlternatingTickPattern,
+from entrystrategy.engine.patterns.price_action import (
+    ChangeOfCharacterPattern,
+    BreakOfStructurePattern,
+    CandleDisplacementPattern,
+    BreakoutRetestPattern,
+    FairValueGapPattern,
+    FairValueGapRetestPattern,
+    OrderBlockRetestPattern,
+    TrendPullbackPattern,
+    DonchianBreakoutPattern,
 )
 from entrystrategy.engine.patterns.hybrid import (
     BreakoutPattern,
@@ -49,7 +50,6 @@ from entrystrategy.engine.patterns.swing_geometry import (
 )
 
 __all__ = [
-    # Candlestick
     "CandlestickReversalPattern",
     "CandlestickContinuationPattern",
     "MultiCandleReversalPattern",
@@ -62,17 +62,15 @@ __all__ = [
     "BodyContractionPattern",
     "StaircasePattern",
     "CandleSequencePattern",
-    # Tick Micro
-    "TickMomentumPattern",
-    "TickReversalPattern",
-    "TickImbalancePattern",
-    "TickBurstPattern",
-    "TickExhaustionPattern",
-    "PriceVelocityPattern",
-    "PriceAccelerationPattern",
-    "ConsecutivePriceMovementPattern",
-    "AlternatingTickPattern",
-    # Hybrid
+    "ChangeOfCharacterPattern",
+    "BreakOfStructurePattern",
+    "CandleDisplacementPattern",
+    "BreakoutRetestPattern",
+    "FairValueGapPattern",
+    "FairValueGapRetestPattern",
+    "OrderBlockRetestPattern",
+    "TrendPullbackPattern",
+    "DonchianBreakoutPattern",
     "BreakoutPattern",
     "FailedBreakoutPattern",
     "MicroPullbackPattern",
@@ -87,7 +85,6 @@ __all__ = [
     "VReversalPattern",
     "InvertedVReversalPattern",
     "HybridTickCandlePattern",
-    # Swing
     "MicroDoubleTopPattern",
     "MicroDoubleBottomPattern",
     "MicroSwingBreakPattern",
