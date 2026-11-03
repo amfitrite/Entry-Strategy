@@ -47,6 +47,9 @@ class MarketBuffer:
             self._ticks.append(tick)
 
     def add_completed_candle(self, candle: Candle):
+        """Store only fully closed candles; unfinished bars never enter strategy history."""
+        if not candle.is_closed:
+            return
         tf = (candle.timeframe or "M1").upper()
         with self._lock:
             if tf == "M5":
