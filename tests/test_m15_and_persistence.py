@@ -328,3 +328,60 @@ def test_service_set_timeframe_m15_api():
     # Previous active signal in M5 must be transitioned to EXPIRED due to timeframe shift
     assert svc.latest_signals_by_pattern[1].status == SignalStatus.EXPIRED
     assert "M15" in svc.latest_signals_by_pattern[1].status_reason
+
+
+def test_hybrid_patterns_dynamic_timeframe_in_reasons():
+    """Verify that pattern reasons dynamically reflect the active timeframe (M15, M5, or M1)
+    and do not hardcode 'M5' when running on M15 bars.
+    """
+    from entrystrategy.engine.patterns.hybrid import (
+        BreakoutPattern,
+        MomentumExhaustionPattern,
+    )
+    now = datetime.now(timezone.utc)
+
+    # Test on M15 buffer: Bull exhaustion on M15 (c1 large bull range 8.32 pts, c0 stalls)
+    buf_m15 = MarketBuffer(candle_capacity=10, default_timeframe="M15")
+    c1_m15 = Candle(
+        timestamp=now - timedelta(minutes=30),
+        open=2740.0,
+        high=2748.32,
+        low=2740.0,
+        close=2748.0,
+        timeframe="M15",
+        is_closed=True,
+    )
+    c0_m15 = Candle(
+        timestamp=now - timedelta(minutes=15),
+        open=2748.0,
+        high=2748.5,
+        low=2747.0,
+        close=2747.2,
+        timeframe="M15",
+        is_closed=True,
+    )
+    buf_m15.add_completed_candle(c1_m15)
+    buf_m15.add_completed_candle(c0_m15)
+
+    pat30 = MomentumExhaustionPattern()
+    sig30 = pat30.evaluate(buf_m15)
+    assert sig30 is not None
+    assert sig30.direction == SignalDirection.SELL
+    # The reason string MUST state M15, NOT M5!
+    assert "M15" in sig30.reasons[0]
+    assert "M5" not in sig30.reasons[0]
+    assert "m15_mom_exh" in sig30.event_id
+
+    # Test Breakout on M15
+    buf_bo = MarketBuffer(candle_capacity=10, default_timeframe="M15")
+    c1_bo = Candle(now - timedelta(minutes=30), 2740.0, 2745.0, 2739.0, 2744.0, timeframe="M15", is_closed=True)
+    c0_bo = Candle(now - timedelta(minutes=15), 2744.2, 2748.0, 2743.8, 2747.5, timeframe="M15", is_closed=True)
+    buf_bo.add_completed_candle(c1_bo)
+    buf_bo.add_completed_candle(c0_bo)
+
+    pat7 = BreakoutPattern()
+    sig7 = pat7.evaluate(buf_bo)
+    assert sig7 is not None
+    assert "Breakout High Candle C[1] M15" in sig7.reasons[0]
+    assert "M5" not in sig7.reasons[0]
+    assert "m15_breakout" in sig7.event_id

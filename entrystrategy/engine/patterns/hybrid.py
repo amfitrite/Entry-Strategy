@@ -22,14 +22,15 @@ class BreakoutPattern(BasePattern):
 
     def evaluate(self, buffer: MarketBuffer) -> Optional[EntrySignal]:
         candles = buffer.get_recent_candles(2)
-        # M5 / M1 Candle-based evaluation
+        tf = buffer.active_timeframe
+        tf_pfx = tf.lower()
         if len(candles) >= 2:
             c0, c1 = candles[0], candles[1]
             if c0.is_bullish and c0.close > (c1.high + 0.15) and c0.body >= 0.40:
                 ref_px = round(c1.high, 2)
                 trig_px = round(c0.close, 2)
                 inval_px = round(c1.low, 2)
-                event_id = f"m5_breakout_buy_{int(c0.timestamp.timestamp())}"
+                event_id = f"{tf_pfx}_breakout_buy_{int(c0.timestamp.timestamp())}"
                 if not self._is_event_deduplicated(event_id):
                     return EntrySignal(
                         pattern_id=self.pattern_id,
@@ -44,7 +45,7 @@ class BreakoutPattern(BasePattern):
                         price=trig_px,
                         timestamp_ms=buffer.current_time_ms,
                         reasons=[
-                            f"Breakout High Candle C[1] M5: Penutupan ({trig_px:.2f}) > High ({ref_px:.2f})",
+                            f"Breakout High Candle C[1] {tf}: Penutupan ({trig_px:.2f}) > High ({ref_px:.2f})",
                             f"Penembusan bar bullish +{c0.close - c1.high:.2f} pts terkonfirmasi",
                         ],
                         metrics={"breakout_pts": round(c0.close - c1.high, 2)},
@@ -53,7 +54,7 @@ class BreakoutPattern(BasePattern):
                 ref_px = round(c1.low, 2)
                 trig_px = round(c0.close, 2)
                 inval_px = round(c1.high, 2)
-                event_id = f"m5_breakout_sell_{int(c0.timestamp.timestamp())}"
+                event_id = f"{tf_pfx}_breakout_sell_{int(c0.timestamp.timestamp())}"
                 if not self._is_event_deduplicated(event_id):
                     return EntrySignal(
                         pattern_id=self.pattern_id,
@@ -68,7 +69,7 @@ class BreakoutPattern(BasePattern):
                         price=trig_px,
                         timestamp_ms=buffer.current_time_ms,
                         reasons=[
-                            f"Breakout Low Candle C[1] M5: Penutupan ({trig_px:.2f}) < Low ({ref_px:.2f})",
+                            f"Breakout Low Candle C[1] {tf}: Penutupan ({trig_px:.2f}) < Low ({ref_px:.2f})",
                             f"Penembusan bar bearish {c0.close - c1.low:.2f} pts terkonfirmasi",
                         ],
                         metrics={"breakout_pts": round(c0.close - c1.low, 2)},
@@ -94,7 +95,8 @@ class FailedBreakoutPattern(BasePattern):
     def evaluate(self, buffer: MarketBuffer) -> Optional[EntrySignal]:
         # Evaluate only completed OHLC candles for the active timeframe.
         candles = buffer.get_recent_candles(2)
-        # M5 / M1 Candle-based Liquidity Sweep + Reclaim
+        tf = buffer.active_timeframe
+        tf_pfx = tf.lower()
         if len(candles) >= 2:
             c0, c1 = candles[0], candles[1]
             # Bullish Reclaim (Bear Trap): c0 sweeps below c1.low, closes back above c1.low
@@ -102,7 +104,7 @@ class FailedBreakoutPattern(BasePattern):
                 ref_px = round(c1.low, 2)
                 trig_px = round(c0.close, 2)
                 inval_px = round(c0.low - 0.15, 2)
-                event_id = f"m5_sweep_reclaim_buy_{int(c0.timestamp.timestamp())}"
+                event_id = f"{tf_pfx}_sweep_reclaim_buy_{int(c0.timestamp.timestamp())}"
                 if not self._is_event_deduplicated(event_id):
                     return EntrySignal(
                         pattern_id=self.pattern_id,
@@ -127,7 +129,7 @@ class FailedBreakoutPattern(BasePattern):
                 ref_px = round(c1.high, 2)
                 trig_px = round(c0.close, 2)
                 inval_px = round(c0.high + 0.15, 2)
-                event_id = f"m5_sweep_reclaim_sell_{int(c0.timestamp.timestamp())}"
+                event_id = f"{tf_pfx}_sweep_reclaim_sell_{int(c0.timestamp.timestamp())}"
                 if not self._is_event_deduplicated(event_id):
                     return EntrySignal(
                         pattern_id=self.pattern_id,
@@ -168,7 +170,8 @@ class MicroPullbackPattern(BasePattern):
     def evaluate(self, buffer: MarketBuffer) -> Optional[EntrySignal]:
         # Evaluate only completed OHLC candles for the active timeframe.
         candles = buffer.get_recent_candles(2)
-        # M5 / M1 Candle-based evaluation
+        tf = buffer.active_timeframe
+        tf_pfx = tf.lower()
         if len(candles) >= 2:
             c0, c1 = candles[0], candles[1]
             if c1.is_bullish and c1.body >= 1.0:
@@ -177,7 +180,7 @@ class MicroPullbackPattern(BasePattern):
                     ref_px = round(mid_c1, 2)
                     trig_px = round(c0.close, 2)
                     inval_px = round(c1.low, 2)
-                    event_id = f"m5_pullback_buy_{int(c0.timestamp.timestamp())}"
+                    event_id = f"{tf_pfx}_pullback_buy_{int(c0.timestamp.timestamp())}"
                     if not self._is_event_deduplicated(event_id):
                         return EntrySignal(
                             pattern_id=self.pattern_id,
@@ -192,7 +195,7 @@ class MicroPullbackPattern(BasePattern):
                             price=trig_px,
                             timestamp_ms=buffer.current_time_ms,
                             reasons=[
-                                f"Micro Pullback M5: Ekor menguji area 50% body impuls C[1] ({ref_px:.2f})",
+                                f"Micro Pullback {tf}: Ekor menguji area 50% body impuls C[1] ({ref_px:.2f})",
                                 f"Harga memantul naik ditutup di {trig_px:.2f} melanjutkan tren bullish",
                             ],
                             metrics={"mid_c1": ref_px, "c0_low": round(c0.low, 2)},
@@ -203,7 +206,7 @@ class MicroPullbackPattern(BasePattern):
                     ref_px = round(mid_c1, 2)
                     trig_px = round(c0.close, 2)
                     inval_px = round(c1.high, 2)
-                    event_id = f"m5_pullback_sell_{int(c0.timestamp.timestamp())}"
+                    event_id = f"{tf_pfx}_pullback_sell_{int(c0.timestamp.timestamp())}"
                     if not self._is_event_deduplicated(event_id):
                         return EntrySignal(
                             pattern_id=self.pattern_id,
@@ -218,7 +221,7 @@ class MicroPullbackPattern(BasePattern):
                             price=trig_px,
                             timestamp_ms=buffer.current_time_ms,
                             reasons=[
-                                f"Micro Pullback M5: Ekor menguji area 50% body impuls C[1] ({ref_px:.2f})",
+                                f"Micro Pullback {tf}: Ekor menguji area 50% body impuls C[1] ({ref_px:.2f})",
                                 f"Harga tertekan turun ditutup di {trig_px:.2f} melanjutkan tren bearish",
                             ],
                             metrics={"mid_c1": ref_px, "c0_high": round(c0.high, 2)},
@@ -244,7 +247,8 @@ class MicroTrendReversalPattern(BasePattern):
     def evaluate(self, buffer: MarketBuffer) -> Optional[EntrySignal]:
         # Evaluate only completed OHLC candles for the active timeframe.
         candles = buffer.get_recent_candles(4)
-        # M5 / M1 Candle-based evaluation
+        tf = buffer.active_timeframe
+        tf_pfx = tf.lower()
         if len(candles) >= 4:
             c0, c1, c2, c3 = candles[0], candles[1], candles[2], candles[3]
             # Bullish Pivot Reversal
@@ -252,7 +256,7 @@ class MicroTrendReversalPattern(BasePattern):
                 ref_px = round(c1.high, 2)
                 trig_px = round(c0.close, 2)
                 inval_px = round(c1.low, 2)
-                event_id = f"m5_micro_trend_buy_{int(c0.timestamp.timestamp())}"
+                event_id = f"{tf_pfx}_micro_trend_buy_{int(c0.timestamp.timestamp())}"
                 if not self._is_event_deduplicated(event_id):
                     return EntrySignal(
                         pattern_id=self.pattern_id,
@@ -267,7 +271,7 @@ class MicroTrendReversalPattern(BasePattern):
                         price=trig_px,
                         timestamp_ms=buffer.current_time_ms,
                         reasons=[
-                            f"Micro Trend Reversal Bullish M5: Lower highs diimbangi Higher Low di C[1]",
+                            f"Micro Trend Reversal Bullish {tf}: Lower highs diimbangi Higher Low di C[1]",
                             f"Candle C[0] ({trig_px:.2f}) menembus swing high C[1] ({ref_px:.2f})",
                         ],
                         metrics={"broken_high": ref_px, "higher_low": round(c1.low, 2)},
@@ -277,7 +281,7 @@ class MicroTrendReversalPattern(BasePattern):
                 ref_px = round(c1.low, 2)
                 trig_px = round(c0.close, 2)
                 inval_px = round(c1.high, 2)
-                event_id = f"m5_micro_trend_sell_{int(c0.timestamp.timestamp())}"
+                event_id = f"{tf_pfx}_micro_trend_sell_{int(c0.timestamp.timestamp())}"
                 if not self._is_event_deduplicated(event_id):
                     return EntrySignal(
                         pattern_id=self.pattern_id,
@@ -292,7 +296,7 @@ class MicroTrendReversalPattern(BasePattern):
                         price=trig_px,
                         timestamp_ms=buffer.current_time_ms,
                         reasons=[
-                            f"Micro Trend Reversal Bearish M5: Higher lows diimbangi Lower High di C[1]",
+                            f"Micro Trend Reversal Bearish {tf}: Higher lows diimbangi Lower High di C[1]",
                             f"Candle C[0] ({trig_px:.2f}) menembus swing low C[1] ({ref_px:.2f})",
                         ],
                         metrics={"broken_low": ref_px, "lower_high": round(c1.high, 2)},
@@ -318,7 +322,8 @@ class MicroRangeExpansionPattern(BasePattern):
     def evaluate(self, buffer: MarketBuffer) -> Optional[EntrySignal]:
         # Evaluate only completed OHLC candles for the active timeframe.
         candles = buffer.get_recent_candles(5)
-        # M5 / M1 Candle-based evaluation
+        tf = buffer.active_timeframe
+        tf_pfx = tf.lower()
         if len(candles) >= 4:
             c0 = candles[0]
             prior = candles[1:4]
@@ -328,7 +333,7 @@ class MicroRangeExpansionPattern(BasePattern):
                     ref_px = round(c0.open, 2)
                     trig_px = round(c0.close, 2)
                     inval_px = round(c0.low, 2)
-                    event_id = f"m5_range_exp_buy_{int(c0.timestamp.timestamp())}"
+                    event_id = f"{tf_pfx}_range_exp_buy_{int(c0.timestamp.timestamp())}"
                     if not self._is_event_deduplicated(event_id):
                         return EntrySignal(
                             pattern_id=self.pattern_id,
@@ -343,7 +348,7 @@ class MicroRangeExpansionPattern(BasePattern):
                             price=trig_px,
                             timestamp_ms=buffer.current_time_ms,
                             reasons=[
-                                f"Ekspansi Rentang Bar M5: Rentang {c0.range:.2f} pts (> 1.4x avg {avg_r:.2f} pts)",
+                                f"Ekspansi Rentang Bar {tf}: Rentang {c0.range:.2f} pts (> 1.4x avg {avg_r:.2f} pts)",
                                 f"Dorongan bullish solid dari {ref_px:.2f} menuju {trig_px:.2f}",
                             ],
                             metrics={"range": round(c0.range, 2), "avg_range": round(avg_r, 2)},
@@ -352,7 +357,7 @@ class MicroRangeExpansionPattern(BasePattern):
                     ref_px = round(c0.open, 2)
                     trig_px = round(c0.close, 2)
                     inval_px = round(c0.high, 2)
-                    event_id = f"m5_range_exp_sell_{int(c0.timestamp.timestamp())}"
+                    event_id = f"{tf_pfx}_range_exp_sell_{int(c0.timestamp.timestamp())}"
                     if not self._is_event_deduplicated(event_id):
                         return EntrySignal(
                             pattern_id=self.pattern_id,
@@ -367,7 +372,7 @@ class MicroRangeExpansionPattern(BasePattern):
                             price=trig_px,
                             timestamp_ms=buffer.current_time_ms,
                             reasons=[
-                                f"Ekspansi Rentang Bar M5: Rentang {c0.range:.2f} pts (> 1.4x avg {avg_r:.2f} pts)",
+                                f"Ekspansi Rentang Bar {tf}: Rentang {c0.range:.2f} pts (> 1.4x avg {avg_r:.2f} pts)",
                                 f"Dorongan bearish solid dari {ref_px:.2f} menuju {trig_px:.2f}",
                             ],
                             metrics={"range": round(c0.range, 2), "avg_range": round(avg_r, 2)},
@@ -393,8 +398,8 @@ class MicroRangeCompressionPattern(BasePattern):
     def evaluate(self, buffer: MarketBuffer) -> Optional[EntrySignal]:
         # Evaluate only completed OHLC candles for the active timeframe.
         candles = buffer.get_recent_candles(5)
-        # M5 / M1 Candle-based evaluation
-        candles = buffer.get_recent_candles(5)
+        tf = buffer.active_timeframe
+        tf_pfx = tf.lower()
         if len(candles) >= 4:
             c0 = candles[0]
             c1, c2, c3 = candles[1], candles[2], candles[3]
@@ -407,7 +412,7 @@ class MicroRangeCompressionPattern(BasePattern):
                     ref_px = round(comp_high, 2)
                     trig_px = round(c0.close, 2)
                     inval_px = round(comp_low, 2)
-                    event_id = f"m5_range_comp_buy_{int(c0.timestamp.timestamp())}"
+                    event_id = f"{tf_pfx}_range_comp_buy_{int(c0.timestamp.timestamp())}"
                     if not self._is_event_deduplicated(event_id):
                         return EntrySignal(
                             pattern_id=self.pattern_id,
@@ -422,7 +427,7 @@ class MicroRangeCompressionPattern(BasePattern):
                             price=trig_px,
                             timestamp_ms=buffer.current_time_ms,
                             reasons=[
-                                f"Kompresi Bar M5 3 Bar: Rentang konsolidasi ketat {span_comp:.2f} pts",
+                                f"Kompresi Bar {tf} 3 Bar: Rentang konsolidasi ketat {span_comp:.2f} pts",
                                 f"Terobosan Bullish C[0] ({trig_px:.2f}) menembus batas kompresi ({ref_px:.2f})",
                             ],
                             metrics={"span_comp": round(span_comp, 2), "breakout_level": ref_px},
@@ -431,7 +436,7 @@ class MicroRangeCompressionPattern(BasePattern):
                     ref_px = round(comp_low, 2)
                     trig_px = round(c0.close, 2)
                     inval_px = round(comp_high, 2)
-                    event_id = f"m5_range_comp_sell_{int(c0.timestamp.timestamp())}"
+                    event_id = f"{tf_pfx}_range_comp_sell_{int(c0.timestamp.timestamp())}"
                     if not self._is_event_deduplicated(event_id):
                         return EntrySignal(
                             pattern_id=self.pattern_id,
@@ -446,7 +451,7 @@ class MicroRangeCompressionPattern(BasePattern):
                             price=trig_px,
                             timestamp_ms=buffer.current_time_ms,
                             reasons=[
-                                f"Kompresi Bar M5 3 Bar: Rentang konsolidasi ketat {span_comp:.2f} pts",
+                                f"Kompresi Bar {tf} 3 Bar: Rentang konsolidasi ketat {span_comp:.2f} pts",
                                 f"Terobosan Bearish C[0] ({trig_px:.2f}) menembus batas kompresi ({ref_px:.2f})",
                             ],
                             metrics={"span_comp": round(span_comp, 2), "breakout_level": ref_px},
@@ -550,7 +555,8 @@ class RejectionPattern(BasePattern):
     def evaluate(self, buffer: MarketBuffer) -> Optional[EntrySignal]:
         # Evaluate only completed OHLC candles for the active timeframe.
         candles = buffer.get_recent_candles(2)
-        # M5 Candle-based evaluation
+        tf = buffer.active_timeframe
+        tf_pfx = tf.lower()
         candles = buffer.get_recent_candles(2)
         if candles:
             c0 = candles[0]
@@ -558,7 +564,7 @@ class RejectionPattern(BasePattern):
                 ref_px = round(c0.low, 2)
                 trig_px = round(c0.close, 2)
                 inval_px = round(c0.low - 0.15, 2)
-                event_id = f"m5_rejection_buy_{int(c0.timestamp.timestamp())}"
+                event_id = f"{tf_pfx}_rejection_buy_{int(c0.timestamp.timestamp())}"
                 if not self._is_event_deduplicated(event_id):
                     return EntrySignal(
                         pattern_id=self.pattern_id,
@@ -573,15 +579,15 @@ class RejectionPattern(BasePattern):
                         price=trig_px,
                         timestamp_ms=buffer.current_time_ms,
                         reasons=[
-                            f"Penolakan Bawah M5 (Lower Rejection): Ekor bawah {c0.lower_wick:.2f} pts (> 50% range)",
-                            "Tekanan pantulan kuat muncul di dasar candle M5",
+                            f"Penolakan Bawah {tf} (Lower Rejection): Ekor bawah {c0.lower_wick:.2f} pts (> 50% range)",
+                            f"Tekanan pantulan kuat muncul di dasar candle {tf}",
                         ],
                     )
             if c0.upper_wick >= 0.50 * c0.range and c0.range >= 0.60:
                 ref_px = round(c0.high, 2)
                 trig_px = round(c0.close, 2)
                 inval_px = round(c0.high + 0.15, 2)
-                event_id = f"m5_rejection_sell_{int(c0.timestamp.timestamp())}"
+                event_id = f"{tf_pfx}_rejection_sell_{int(c0.timestamp.timestamp())}"
                 if not self._is_event_deduplicated(event_id):
                     return EntrySignal(
                         pattern_id=self.pattern_id,
@@ -596,8 +602,8 @@ class RejectionPattern(BasePattern):
                         price=trig_px,
                         timestamp_ms=buffer.current_time_ms,
                         reasons=[
-                            f"Penolakan Atas M5 (Upper Rejection): Ekor atas {c0.upper_wick:.2f} pts (> 50% range)",
-                            "Tekanan penolakan kuat muncul di pucuk candle M5",
+                            f"Penolakan Atas {tf} (Upper Rejection): Ekor atas {c0.upper_wick:.2f} pts (> 50% range)",
+                            f"Tekanan penolakan kuat muncul di pucuk candle {tf}",
                         ],
                     )
         return None
@@ -624,7 +630,12 @@ class GapPattern(BasePattern):
         if len(candles) >= 2:
             c0, c1 = candles[0], candles[1]
             time_diff = abs((c0.timestamp - c1.timestamp).total_seconds())
-            max_allowed = 600 if buffer.active_timeframe == "M5" else 180
+            if buffer.active_timeframe == "M15":
+                max_allowed = 1800
+            elif buffer.active_timeframe == "M5":
+                max_allowed = 600
+            else:
+                max_allowed = 180
             if time_diff > max_allowed:
                 return None
 
@@ -704,15 +715,15 @@ class FailedMomentumPattern(BasePattern):
     def evaluate(self, buffer: MarketBuffer) -> Optional[EntrySignal]:
         # Evaluate only completed OHLC candles for the active timeframe.
         candles = buffer.get_recent_candles(2)
-        # M5 / M1 Candle-based evaluation
-        candles = buffer.get_recent_candles(2)
+        tf = buffer.active_timeframe
+        tf_pfx = tf.lower()
         if len(candles) >= 2:
             c0, c1 = candles[0], candles[1]
             if c1.is_bullish and c1.body >= 1.0 and c0.is_bearish and c0.close <= (c1.open + 0.15):
                 ref_px = round(c1.high, 2)
                 trig_px = round(c0.close, 2)
                 inval_px = round(c1.high + 0.15, 2)
-                event_id = f"m5_failed_mom_sell_{int(c0.timestamp.timestamp())}"
+                event_id = f"{tf_pfx}_failed_mom_sell_{int(c0.timestamp.timestamp())}"
                 if not self._is_event_deduplicated(event_id):
                     return EntrySignal(
                         pattern_id=self.pattern_id,
@@ -727,7 +738,7 @@ class FailedMomentumPattern(BasePattern):
                         price=trig_px,
                         timestamp_ms=buffer.current_time_ms,
                         reasons=[
-                            f"Momentum Naik M5 Gagal Total: Bar bullish {c1.body:.2f} pts di-reversal 100% oleh bar bearish {c0.body:.2f} pts",
+                            f"Momentum Naik {tf} Gagal Total: Bar bullish {c1.body:.2f} pts di-reversal 100% oleh bar bearish {c0.body:.2f} pts",
                             f"Penutupan {trig_px:.2f} menembus kembali di bawah open C[1] ({c1.open:.2f})",
                         ],
                         metrics={"c1_body": round(c1.body, 2), "c0_body": round(c0.body, 2)},
@@ -736,7 +747,7 @@ class FailedMomentumPattern(BasePattern):
                 ref_px = round(c1.low, 2)
                 trig_px = round(c0.close, 2)
                 inval_px = round(c1.low - 0.15, 2)
-                event_id = f"m5_failed_mom_buy_{int(c0.timestamp.timestamp())}"
+                event_id = f"{tf_pfx}_failed_mom_buy_{int(c0.timestamp.timestamp())}"
                 if not self._is_event_deduplicated(event_id):
                     return EntrySignal(
                         pattern_id=self.pattern_id,
@@ -751,7 +762,7 @@ class FailedMomentumPattern(BasePattern):
                         price=trig_px,
                         timestamp_ms=buffer.current_time_ms,
                         reasons=[
-                            f"Momentum Turun M5 Gagal Total: Bar bearish {c1.body:.2f} pts di-reversal 100% oleh bar bullish {c0.body:.2f} pts",
+                            f"Momentum Turun {tf} Gagal Total: Bar bearish {c1.body:.2f} pts di-reversal 100% oleh bar bullish {c0.body:.2f} pts",
                             f"Penutupan {trig_px:.2f} menembus kembali di atas open C[1] ({c1.open:.2f})",
                         ],
                         metrics={"c1_body": round(c1.body, 2), "c0_body": round(c0.body, 2)},
@@ -777,7 +788,8 @@ class MomentumExhaustionPattern(BasePattern):
     def evaluate(self, buffer: MarketBuffer) -> Optional[EntrySignal]:
         # Evaluate only completed OHLC candles for the active timeframe.
         candles = buffer.get_recent_candles(3)
-        # M5 / M1 Candle-based evaluation
+        tf = buffer.active_timeframe
+        tf_pfx = tf.lower()
         if len(candles) >= 2:
             c0 = candles[0]
             c1 = candles[1]
@@ -786,7 +798,7 @@ class MomentumExhaustionPattern(BasePattern):
                     ref_px = round(c1.high, 2)
                     trig_px = round(c0.close, 2)
                     inval_px = round(max(c0.high, c1.high) + 0.15, 2)
-                    event_id = f"m5_mom_exh_sell_{int(c0.timestamp.timestamp())}"
+                    event_id = f"{tf_pfx}_mom_exh_sell_{int(c0.timestamp.timestamp())}"
                     if not self._is_event_deduplicated(event_id):
                         return EntrySignal(
                             pattern_id=self.pattern_id,
@@ -801,7 +813,7 @@ class MomentumExhaustionPattern(BasePattern):
                             price=trig_px,
                             timestamp_ms=buffer.current_time_ms,
                             reasons=[
-                                f"Kehabisan Tenaga Buyer (Bull Exhaustion) M5: Reli besar {c1.range:.2f} pts gagal berlanjut",
+                                f"Kehabisan Tenaga Buyer (Bull Exhaustion) {tf}: Reli besar {c1.range:.2f} pts gagal berlanjut",
                                 f"Bar C[0] terhenti (body kecil/ekor atas panjang) dan terdorong turun ke {trig_px:.2f}",
                             ],
                             metrics={"c1_range": round(c1.range, 2), "c0_body": round(c0.body, 2)},
@@ -811,7 +823,7 @@ class MomentumExhaustionPattern(BasePattern):
                     ref_px = round(c1.low, 2)
                     trig_px = round(c0.close, 2)
                     inval_px = round(min(c0.low, c1.low) - 0.15, 2)
-                    event_id = f"m5_mom_exh_buy_{int(c0.timestamp.timestamp())}"
+                    event_id = f"{tf_pfx}_mom_exh_buy_{int(c0.timestamp.timestamp())}"
                     if not self._is_event_deduplicated(event_id):
                         return EntrySignal(
                             pattern_id=self.pattern_id,
@@ -826,7 +838,7 @@ class MomentumExhaustionPattern(BasePattern):
                             price=trig_px,
                             timestamp_ms=buffer.current_time_ms,
                             reasons=[
-                                f"Kehabisan Tenaga Seller (Bear Exhaustion) M5: Penurunan besar {c1.range:.2f} pts gagal berlanjut",
+                                f"Kehabisan Tenaga Seller (Bear Exhaustion) {tf}: Penurunan besar {c1.range:.2f} pts gagal berlanjut",
                                 f"Bar C[0] terhenti (body kecil/ekor bawah panjang) dan terdorong naik ke {trig_px:.2f}",
                             ],
                             metrics={"c1_range": round(c1.range, 2), "c0_body": round(c0.body, 2)},
@@ -852,15 +864,15 @@ class VReversalPattern(BasePattern):
     def evaluate(self, buffer: MarketBuffer) -> Optional[EntrySignal]:
         # Evaluate only completed OHLC candles for the active timeframe.
         candles = buffer.get_recent_candles(3)
-        # M5 Candle-based evaluation
-        candles = buffer.get_recent_candles(3)
+        tf = buffer.active_timeframe
+        tf_pfx = tf.lower()
         if len(candles) >= 2:
             c0, c1 = candles[0], candles[1]
             if c1.is_bearish and c0.is_bullish and c1.body >= 0.80 and c0.close >= (c1.open - 0.20 * c1.body):
                 ref_px = round(c1.low, 2)
                 trig_px = round(c0.close, 2)
                 inval_px = round(min(c0.low, c1.low) - 0.15, 2)
-                event_id = f"m5_v_rev_{int(c0.timestamp.timestamp())}"
+                event_id = f"{tf_pfx}_v_rev_{int(c0.timestamp.timestamp())}"
                 if not self._is_event_deduplicated(event_id):
                     return EntrySignal(
                         pattern_id=self.pattern_id,
@@ -875,7 +887,7 @@ class VReversalPattern(BasePattern):
                         price=trig_px,
                         timestamp_ms=buffer.current_time_ms,
                         reasons=[
-                            f"V-Reversal M5: Bar penurunan {c1.body:.2f} pts langsung dibalas rebound kuat {c0.body:.2f} pts",
+                            f"V-Reversal {tf}: Bar penurunan {c1.body:.2f} pts langsung dibalas rebound kuat {c0.body:.2f} pts",
                             f"Pemulihan harga merebut kembali level {trig_px:.2f}",
                         ],
                     )
@@ -900,15 +912,15 @@ class InvertedVReversalPattern(BasePattern):
     def evaluate(self, buffer: MarketBuffer) -> Optional[EntrySignal]:
         # Evaluate only completed OHLC candles for the active timeframe.
         candles = buffer.get_recent_candles(3)
-        # M5 Candle-based evaluation
-        candles = buffer.get_recent_candles(3)
+        tf = buffer.active_timeframe
+        tf_pfx = tf.lower()
         if len(candles) >= 2:
             c0, c1 = candles[0], candles[1]
             if c1.is_bullish and c0.is_bearish and c1.body >= 0.80 and c0.close <= (c1.open + 0.20 * c1.body):
                 ref_px = round(c1.high, 2)
                 trig_px = round(c0.close, 2)
                 inval_px = round(max(c0.high, c1.high) + 0.15, 2)
-                event_id = f"m5_inv_v_rev_{int(c0.timestamp.timestamp())}"
+                event_id = f"{tf_pfx}_inv_v_rev_{int(c0.timestamp.timestamp())}"
                 if not self._is_event_deduplicated(event_id):
                     return EntrySignal(
                         pattern_id=self.pattern_id,
@@ -923,7 +935,7 @@ class InvertedVReversalPattern(BasePattern):
                         price=trig_px,
                         timestamp_ms=buffer.current_time_ms,
                         reasons=[
-                            f"Inverted V-Reversal M5: Bar reli {c1.body:.2f} pts langsung dibalas kejatuhan kuat {c0.body:.2f} pts",
+                            f"Inverted V-Reversal {tf}: Bar reli {c1.body:.2f} pts langsung dibalas kejatuhan kuat {c0.body:.2f} pts",
                             f"Penurunan harga menembus kembali level {trig_px:.2f}",
                         ],
                     )
