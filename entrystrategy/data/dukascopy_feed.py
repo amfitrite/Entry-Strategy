@@ -1,0 +1,291 @@
+"""Dukascopy Bank Data Ingestor (Historical Warm-up & Real-time Live Stream).
+
+Provides institutional-grade XAUUSD tick and candlestick feeds directly from
+Dukascopy Bank (Swiss FX/Metal ECN marketplace) without requiring MetaTrader 5.
+"""
+import logging
+import threading
+import time
+from datetime import datetime, timezone, timedelta
+from typing import Optional, Callable, List, Dict, Any
+
+from entrystrategy.core.models import Candle, TickData
+
+logger = logging.getLogger("EntryStrategy.DukascopyFeed")
+
+try:
+    import dukascopy_python as duka
+    from dukascopy_python.instruments import I_XAU_USD
+    DUKASCOPY_AVAILABLE = True
+except ImportError:
+    DUKASCOPY_AVAILABLE = False
+    logger.warning("dukascopy-python package is not installed. Live feed will operate in mock mode.")
+
+
+class DukascopyFeed:
+    """Manages real-time streaming and warmup candle synchronization from Dukascopy."""
+
+    def __init__(
+        self,
+        symbol: str = "XAUUSD",
+        timeframe: str = "M5",
+        warmup_candles: int = 100,
+        poll_interval_s: float = 1.0,
+        on_tick: Optional[Callable[[TickData, bool], None]] = None,
+        on_bar_completed: Optional[Callable[[Candle, bool], None]] = None,
+        on_status_change: Optional[Callable[[bool, str, Dict[str, Any]], None]] = None,
+    ):
+        self.symbol = symbol.upper()
+        self.timeframe = timeframe.upper()
+        self.warmup_candles = warmup_candles
+        self.poll_interval_s = max(0.5, float(poll_interval_s))
+
+        self.on_tick = on_tick
+        self.on_bar_completed = on_bar_completed
+        self.on_status_change = on_status_change
+
+        self.is_connected = False
+        self.status_message = "Initializing Dukascopy ECN Feed..."
+        self.last_tick_time: Optional[datetime] = None
+        self.last_candle_timestamp: Optional[datetime] = None
+        self.last_price: float = 0.0
+        self.last_spread: float = 0.0
+        self.total_ticks_received: int = 0
+        self.total_candles_received: int = 0
+
+        self._thread: Optional[threading.Thread] = None
+        self._stop_event = threading.Event()
+        self._lock = threading.RLock()
+
+    def start(self):
+        """Starts background feed thread."""
+        if self._thread and self._thread.is_alive():
+            return
+        self._stop_event.clear()
+        self._thread = threading.Thread(target=self._run_feed_loop, daemon=True, name="DukascopyFeedWorker")
+        self._thread.start()
+        logger.info(f"Dukascopy Feed started for {self.symbol} [{self.timeframe}]")
+
+    def stop(self):
+        """Stops background feed thread."""
+        self._stop_event.set()
+        if self._thread and self._thread.is_alive():
+            self._thread.join(timeout=3.0)
+        self.is_connected = False
+        self._notify_status(False, "Dukascopy Feed stopped")
+        logger.info("Dukascopy Feed stopped")
+
+    def _notify_status(self, connected: bool, message: str):
+        self.is_connected = connected
+        self.status_message = message
+        if self.on_status_change:
+            details = {
+                "symbol": self.symbol,
+                "timeframe": self.timeframe,
+                "last_price": self.last_price,
+                "last_spread": self.last_spread,
+                "total_ticks": self.total_ticks_received,
+                "total_candles": self.total_candles_received,
+            }
+            try:
+                self.on_status_change(connected, message, details)
+            except Exception as e:
+                logger.error(f"Error in on_status_change callback: {e}")
+
+    def fetch_warmup_candles(self, timeframe: Optional[str] = None, count: Optional[int] = None) -> List[Candle]:
+        """Fetches the last N historical candles from Dukascopy to immediately populate buffer."""
+        if not DUKASCOPY_AVAILABLE:
+            logger.warning("dukascopy-python not available, skipping warmup.")
+            return []
+
+        tf = (timeframe or self.timeframe).upper()
+        req_count = count or self.warmup_candles
+        interval_min = 5 if tf == "M5" else 1
+
+        # Look back enough hours to comfortably cover requested candle count + weekends/gaps
+        hours_needed = max(3.0, (req_count * interval_min / 60.0) * 1.5)
+        now = datetime.now(timezone.utc)
+        start = now - timedelta(hours=hours_needed)
+
+        logger.info(f"Fetching {req_count} {tf} warmup candles for {self.symbol} from Dukascopy...")
+        self._notify_status(False, f"Downloading {req_count} {tf} warmup candles from Geneva...")
+
+        try:
+            raw_candles = list(duka.fetch_candles(
+                instrument=I_XAU_USD,
+                interval=interval_min,
+                time_unit=duka.TimeUnit.MINUTE,
+                offer_side=duka.OfferSide.BID,
+                start=start,
+                end=now
+            ))
+            
+            parsed: List[Candle] = []
+            for c in raw_candles:
+                c_obj = Candle(
+                    timestamp=c.timestamp,
+                    open=float(c.open),
+                    high=float(c.high),
+                    low=float(c.low),
+                    close=float(c.close),
+                    tick_volume=float(c.volume),
+                    symbol=self.symbol,
+                    timeframe=tf,
+                    is_closed=True
+                )
+                parsed.append(c_obj)
+
+            parsed.sort(key=lambda x: x.timestamp)
+            if len(parsed) > req_count:
+                parsed = parsed[-req_count:]
+
+            with self._lock:
+                if parsed:
+                    self.last_candle_timestamp = parsed[-1].timestamp
+                    self.last_price = parsed[-1].close
+
+            logger.info(f"Successfully loaded {len(parsed)} {tf} warmup candles from Dukascopy.")
+            return parsed
+
+        except Exception as e:
+            logger.error(f"Failed to fetch warmup candles from Dukascopy: {e}")
+            self._notify_status(False, f"Warmup fetch error: {e}")
+            return []
+
+    def set_timeframe(self, new_tf: str) -> List[Candle]:
+        """Switches active timeframe and performs instant historical synchronization."""
+        clean_tf = new_tf.upper()
+        if clean_tf not in ("M1", "M5"):
+            return []
+        with self._lock:
+            self.timeframe = clean_tf
+            self.last_candle_timestamp = None
+        return self.fetch_warmup_candles(timeframe=clean_tf, count=self.warmup_candles)
+
+    def _run_feed_loop(self):
+        """Continuous live ingestor loop fetching ticks and completed bars."""
+        if not DUKASCOPY_AVAILABLE:
+            self._notify_status(False, "dukascopy-python not installed")
+            return
+
+        # 1. Initial warmup
+        warmup = self.fetch_warmup_candles()
+        if warmup and self.on_bar_completed:
+            for bar in warmup:
+                try:
+                    self.on_bar_completed(bar, True)  # is_history=True
+                except Exception as e:
+                    logger.error(f"Error in on_bar_completed during warmup: {e}")
+
+        # Set initial tick search window (last 60 seconds)
+        self.last_tick_time = datetime.now(timezone.utc) - timedelta(seconds=60)
+        self._notify_status(True, "DUKASCOPY LIVE (XAUUSD)")
+
+        candle_sync_counter = 0
+
+        while not self._stop_event.is_set():
+            loop_start = time.time()
+            try:
+                now = datetime.now(timezone.utc)
+                # Ensure start is strictly before end
+                start_window = self.last_tick_time if self.last_tick_time else (now - timedelta(seconds=60))
+                if (now - start_window).total_seconds() < 0.5:
+                    start_window = now - timedelta(seconds=1)
+
+                # Fetch newest ticks from Dukascopy
+                ticks = list(duka.fetch_ticks(
+                    instrument=I_XAU_USD,
+                    start=start_window,
+                    end=now
+                ))
+
+                if ticks:
+                    ticks.sort(key=lambda t: t.timestamp)
+                    newest_ticks = [t for t in ticks if self.last_tick_time is None or t.timestamp > self.last_tick_time]
+
+                    for t in newest_ticks:
+                        ts_ms = int(t.timestamp.timestamp() * 1000)
+                        mid = (t.bid + t.ask) / 2.0
+                        spread = max(0.0, t.ask - t.bid)
+
+                        tick_obj = TickData(
+                            ts_ms=ts_ms,
+                            bid=float(t.bid),
+                            ask=float(t.ask),
+                            last=mid,
+                            volume=float(t.volume if hasattr(t, "volume") else 1.0),
+                            flags=6,
+                            symbol=self.symbol
+                        )
+
+                        self.last_price = mid
+                        self.last_spread = spread
+                        self.last_tick_time = t.timestamp
+                        self.total_ticks_received += 1
+
+                        if self.on_tick:
+                            try:
+                                self.on_tick(tick_obj, False)
+                            except Exception as e:
+                                logger.error(f"Error in on_tick callback: {e}")
+
+                    if not self.is_connected:
+                        self._notify_status(True, "DUKASCOPY LIVE (XAUUSD)")
+                else:
+                    # Check if market might be closed (e.g. weekend)
+                    # Friday 22:00 UTC to Sunday 22:00 UTC
+                    weekday = now.weekday()
+                    if weekday == 5 or (weekday == 4 and now.hour >= 22) or (weekday == 6 and now.hour < 22):
+                        self._notify_status(True, "Market Closed (Weekend) - Showing Last Known State")
+                    elif not self.is_connected:
+                        self._notify_status(True, "DUKASCOPY LIVE (Awaiting New Ticks)")
+
+                # Check official candle closure every ~15 seconds or on candle intervals
+                candle_sync_counter += 1
+                if candle_sync_counter >= 15:
+                    candle_sync_counter = 0
+                    self._sync_latest_candle(now)
+
+            except Exception as e:
+                logger.warning(f"Dukascopy feed polling error: {e}")
+                self._notify_status(False, f"Reconnecting to Dukascopy: {str(e)[:40]}")
+                time.sleep(2.0)
+
+            # Sleep remaining poll interval
+            elapsed = time.time() - loop_start
+            sleep_time = max(0.2, self.poll_interval_s - elapsed)
+            time.sleep(sleep_time)
+
+    def _sync_latest_candle(self, now: datetime):
+        """Checks for official closed candle on Dukascopy and dispatches it if fresh."""
+        try:
+            interval_min = 5 if self.timeframe == "M5" else 1
+            recent = list(duka.fetch_candles(
+                instrument=I_XAU_USD,
+                interval=interval_min,
+                time_unit=duka.TimeUnit.MINUTE,
+                offer_side=duka.OfferSide.BID,
+                start=now - timedelta(minutes=interval_min * 4),
+                end=now
+            ))
+            if recent:
+                recent.sort(key=lambda x: x.timestamp)
+                latest_raw = recent[-1]
+                if self.last_candle_timestamp is None or latest_raw.timestamp > self.last_candle_timestamp:
+                    c_obj = Candle(
+                        timestamp=latest_raw.timestamp,
+                        open=float(latest_raw.open),
+                        high=float(latest_raw.high),
+                        low=float(latest_raw.low),
+                        close=float(latest_raw.close),
+                        tick_volume=float(latest_raw.volume),
+                        symbol=self.symbol,
+                        timeframe=self.timeframe,
+                        is_closed=True
+                    )
+                    self.last_candle_timestamp = latest_raw.timestamp
+                    self.total_candles_received += 1
+                    if self.on_bar_completed:
+                        self.on_bar_completed(c_obj, False)
+        except Exception as e:
+            logger.debug(f"Candle sync check notice: {e}")

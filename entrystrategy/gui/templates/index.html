@@ -882,7 +882,7 @@
       </div>
       <div class="pill pill-green" id="bridgePill">
         <div class="pill-dot"></div>
-        <span id="bridgeText">PORT 5558 LIVE</span>
+        <span id="bridgeText">DUKASCOPY LIVE</span>
       </div>
     </div>
 
@@ -893,20 +893,20 @@
       </div>
       <div class="pill">
         <span style="color:#999;">PRICE:</span>
-        <strong id="priceText" style="color:#fff;">2745.00</strong>
+        <strong id="priceText" style="color:#fff;">3950.00</strong>
       </div>
       <div class="pill">
         <span style="color:#999;">SPREAD:</span>
         <strong id="spreadText" style="color:#fff;">1.4</strong>
       </div>
       <!-- Interactive Timeframe Selector: M1 and M5 (Default M5) -->
-      <div class="tf-pill-container" title="Pilih Timeframe Analisis Candle MT5 (M1 / M5)">
+      <div class="tf-pill-container" title="Pilih Timeframe Analisis Candle (M1 / M5)">
         <span style="color:#94a3b8; font-size:10.5px; font-weight:800; margin-left:3px; margin-right:2px;">TF:</span>
         <button class="btn-tf" id="btnTfM1" onclick="selectTimeframe('M1')">M1</button>
         <button class="btn-tf active" id="btnTfM5" onclick="selectTimeframe('M5')">M5</button>
       </div>
 
-      <div class="pill" title="Jumlah Candle Terkumpul dari MT5">
+      <div class="pill" title="Jumlah Candle Terkumpul dari Dukascopy Bank">
         <span style="color:#94a3b8; font-size:10.5px; font-weight:700;">BARS:</span>
         <strong id="barsCountText" style="color:#fff; font-weight:800; font-size:12px;">0</strong>
       </div>
@@ -977,7 +977,7 @@
         <div class="radar-circle"></div>
         <div class="radar-core"></div>
       </div>
-      <div class="radar-title">MEMINDAI 40 KELUARGA POLA ENTRY (PORT 5558)</div>
+      <div class="radar-title">MEMINDAI 40 KELUARGA POLA ENTRY (DUKASCOPY LIVE)</div>
       <div class="radar-desc">
         Kondisi pasar sedang dipindai secara agnostik. Pola yang idle tidak dimunculkan.<br>
         Begitu ada pola terpenuhi, sinyal <strong>BUY (Hijau)</strong> atau <strong>SELL (Merah)</strong> akan langsung muncul di sini.
@@ -1338,10 +1338,10 @@
             const txtEl = document.getElementById('bridgeText');
             if (state.bridge.connected) {
               pillEl.className = 'pill pill-green';
-              txtEl.innerText = `PORT ${state.bridge.port} LIVE`;
+              txtEl.innerText = state.bridge.status || 'DUKASCOPY LIVE (XAUUSD)';
             } else {
               pillEl.className = 'pill pill-yellow';
-              txtEl.innerText = `PORT ${state.bridge.port} (WAITING MT5)`;
+              txtEl.innerText = state.bridge.status || 'CONNECTING DUKASCOPY...';
             }
           }
 

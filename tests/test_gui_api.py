@@ -33,8 +33,8 @@ class MockWebviewWindow:
 
 
 def test_matrix_window_api_toggle_simple_mode():
-    config = AppConfig(enable_simulation=False, bridge_port=5578)
-    service = EntryStrategyService(config)
+    config = AppConfig(enable_simulation=False)
+    service = EntryStrategyService(config, start_servers=False)
     api = MatrixWindowAPI(service)
     mock_win = MockWebviewWindow()
     api.set_window(mock_win)

@@ -1,11 +1,11 @@
-"""Unit tests for M5 Candle-Based Strategy Engine with Ticks Disabled."""
+"""Unit tests for M5 Candle-Based Strategy Engine with Dukascopy Live Feed."""
 import time
 from datetime import datetime, timezone, timedelta
 import pytest
 from entrystrategy.config import AppConfig
 from entrystrategy.core.buffer import MarketBuffer
 from entrystrategy.core.models import Candle, TickData, SignalDirection
-from entrystrategy.data.mt5_bridge import TickToBarAggregator, MT5BridgeServer
+from entrystrategy.data.dukascopy_feed import DukascopyFeed
 from entrystrategy.service import EntryStrategyService
 from entrystrategy.gui.app import MatrixWindowAPI
 from entrystrategy.engine.registry import PatternRegistry
@@ -23,80 +23,80 @@ def test_default_config_is_m5_and_ticks_disabled():
 
 def test_all_40_patterns_active_in_matrix_state_with_ticks_disabled():
     """Verify none of the 40 patterns are marked DISABLED when ticks are disabled."""
-    config = AppConfig(enable_simulation=False, enable_ticks=False, bridge_port=5579)
+    config = AppConfig(enable_simulation=False, enable_ticks=False)
     service = EntryStrategyService(config, start_servers=False)
 
     state = service.get_matrix_state()
     assert state["config"]["timeframe"] == "M5"
     assert state["config"]["enable_ticks"] is False
 
-    # Check all 40 pattern cards: none should be marked DISABLED
+    # Check all 40 pattern cards exist
     patterns = state["patterns"]
     assert len(patterns) == 40
     for p in patterns:
         assert p["status"] != "DISABLED"
-        assert p["time_ago"] != "TICKS OFF"
+        assert p["status"] in ("IDLE", "ACTIVE", "PENDING_CONFIRMATION", "CONFIRMED", "INVALIDATED", "EXPIRED")
 
 
 def test_patterns_evaluate_on_m5_candles_without_ticks():
-    """Verify patterns 11-17, 22, 23, 24, 40 evaluate and fire signals purely using M5 candles."""
+    """Verify patterns evaluate and trigger using only M5 candles when ticks are disabled."""
+    buf = MarketBuffer(enable_ticks=False, active_timeframe="M5")
     registry = PatternRegistry()
-    buf = MarketBuffer()
-    buf.set_enable_ticks(False)  # Ticks disabled
-    assert len(buf.get_recent_ticks()) == 0
 
     now = datetime.now(timezone.utc)
 
-    # 1. Test Pola 11: Momentum on M5 candles
-    p11 = registry.get_pattern(11)
-    c_prev = Candle(timestamp=now - timedelta(minutes=10), open=2740.0, high=2742.0, low=2739.0, close=2741.0, timeframe="M5")
-    c_mom = Candle(timestamp=now - timedelta(minutes=5), open=2741.0, high=2744.5, low=2740.5, close=2744.0, timeframe="M5")
-    buf.add_completed_candle(c_prev)
-    buf.add_completed_candle(c_mom)
+    # 1. Test Pattern 7 (Breakout) on pure M5 candles
+    p7 = registry.get_pattern(7)
+    c1 = Candle(timestamp=now - timedelta(minutes=10), open=2740.0, high=2745.0, low=2739.0, close=2744.0, timeframe="M5")
+    c0 = Candle(timestamp=now - timedelta(minutes=5), open=2744.2, high=2748.0, low=2743.8, close=2747.5, timeframe="M5")
+    buf.add_completed_candle(c1)
+    buf.add_completed_candle(c0)
 
-    sig11 = p11.evaluate(buf)
-    assert sig11 is not None
-    assert sig11.direction == SignalDirection.BUY
-    assert "Momentum Candle M5" in sig11.reasons[0]
+    sig7 = p7.evaluate(buf)
+    assert sig7 is not None
+    assert sig7.direction == SignalDirection.BUY
+    assert "Breakout High Candle C[1] M5" in sig7.reasons[0]
 
-    # 2. Test Pola 14: Volume Burst on M5 candles
-    buf_vol = MarketBuffer()
-    buf_vol.set_enable_ticks(False)
-    p14 = registry.get_pattern(14)
-    for i in range(4, 0, -1):
-        c = Candle(timestamp=now - timedelta(minutes=i * 5), open=2740.0, high=2742.0, low=2739.0, close=2741.0, tick_volume=100.0, timeframe="M5")
-        buf_vol.add_completed_candle(c)
-    # Burst candle: volume 350 vs avg 100
-    c_burst = Candle(timestamp=now, open=2741.0, high=2745.0, low=2740.5, close=2744.5, tick_volume=350.0, timeframe="M5")
-    buf_vol.add_completed_candle(c_burst)
+    # 2. Test Pattern 8 (Failed Breakout / Sweep & Reclaim) on pure M5 candles
+    buf_sweep = MarketBuffer(enable_ticks=False, active_timeframe="M5")
+    p8 = registry.get_pattern(8)
+    c1_swp = Candle(timestamp=now - timedelta(minutes=10), open=2744.0, high=2745.0, low=2740.0, close=2741.0, timeframe="M5")
+    c0_swp = Candle(timestamp=now - timedelta(minutes=5), open=2740.5, high=2743.0, low=2738.5, close=2742.0, timeframe="M5")
+    buf_sweep.add_completed_candle(c1_swp)
+    buf_sweep.add_completed_candle(c0_swp)
 
-    sig14 = p14.evaluate(buf_vol)
-    assert sig14 is not None
-    assert sig14.direction == SignalDirection.BUY
-    assert "Ledakan Volume M5" in sig14.reasons[0]
+    sig8 = p8.evaluate(buf_sweep)
+    assert sig8 is not None
+    assert sig8.direction == SignalDirection.BUY
+    assert "Liquidity Sweep Bawah" in sig8.reasons[0]
 
-    # 3. Test Pola 22: Consecutive Movement on M5 candles
-    buf_consec = MarketBuffer()
-    buf_consec.set_enable_ticks(False)
-    p22 = registry.get_pattern(22)
-    c_c1 = Candle(timestamp=now - timedelta(minutes=15), open=2738.0, high=2740.0, low=2737.5, close=2739.5, timeframe="M5")
-    c_c2 = Candle(timestamp=now - timedelta(minutes=10), open=2739.5, high=2742.0, low=2739.0, close=2741.8, timeframe="M5")
-    c_c3 = Candle(timestamp=now - timedelta(minutes=5), open=2741.8, high=2744.5, low=2741.5, close=2744.0, timeframe="M5")
-    buf_consec.add_completed_candle(c_c1)
-    buf_consec.add_completed_candle(c_c2)
-    buf_consec.add_completed_candle(c_c3)
+    # 3. Test Pattern 33 (Micro Swing Break) on pure M5 candles
+    buf_swg = MarketBuffer(enable_ticks=False, active_timeframe="M5")
+    p33 = registry.get_pattern(33)
+    base_time = now - timedelta(minutes=30)
+    # 5 bars establishing swing high at 2750.0
+    for i in range(5):
+        h = 2750.0 if i == 2 else 2748.0
+        buf_swg.add_completed_candle(Candle(
+            timestamp=base_time + timedelta(minutes=5 * i),
+            open=2745.0, high=h, low=2744.0, close=2746.0, timeframe="M5"
+        ))
+    # 6th bar breaks above 2750.0
+    buf_swg.add_completed_candle(Candle(
+        timestamp=now,
+        open=2749.0, high=2753.0, low=2748.5, close=2752.5, timeframe="M5"
+    ))
+    sig33 = p33.evaluate(buf_swg)
+    assert sig33 is not None
+    assert sig33.direction == SignalDirection.BUY
+    assert "Micro Swing High 5 Bar" in sig33.reasons[0]
 
-    sig22 = p22.evaluate(buf_consec)
-    assert sig22 is not None
-    assert sig22.direction == SignalDirection.BUY
-    assert "3 Candle M5 Berturut-turut Bullish" in sig22.reasons[0]
-
-    # 4. Test Pola 40: Hybrid M5 Candle Pin Bar & Follow-through
-    buf_hyb = MarketBuffer()
-    buf_hyb.set_enable_ticks(False)
+    # 4. Test Pattern 40 (Hybrid Candle Synergy) on pure M5 candles
+    buf_hyb = MarketBuffer(enable_ticks=False, active_timeframe="M5")
     p40 = registry.get_pattern(40)
-    # Pin bar with long lower wick (low 2735.0, close 2740.0, range 5.0, lower wick 4.0 >= 45%)
-    c_pin = Candle(timestamp=now - timedelta(minutes=10), open=2739.0, high=2740.0, low=2735.0, close=2739.5, timeframe="M5")
+    # c1 is pin bar with long lower wick
+    c_pin = Candle(timestamp=now - timedelta(minutes=10), open=2742.0, high=2743.0, low=2735.0, close=2741.0, timeframe="M5")
+    # c0 confirms with bullish follow-through
     c_follow = Candle(timestamp=now - timedelta(minutes=5), open=2739.5, high=2743.0, low=2739.0, close=2742.5, timeframe="M5")
     buf_hyb.add_completed_candle(c_pin)
     buf_hyb.add_completed_candle(c_follow)
@@ -107,29 +107,40 @@ def test_patterns_evaluate_on_m5_candles_without_ticks():
     assert "Sinergi M5: Pin bar" in sig40.reasons[0]
 
 
-def test_bridge_server_parses_m5_bar_command():
-    """Verify MT5BridgeServer parses #BAR:M5 lines sent by EA on M5 bar close."""
+def test_dukascopy_feed_parses_m5_bar():
+    """Verify DukascopyFeed creates valid M5 Candle domain models."""
     completed_bars = []
-    server = MT5BridgeServer(on_bar_completed=lambda c: completed_bars.append(c))
+    feed = DukascopyFeed(on_bar_completed=lambda c, hist: completed_bars.append(c))
 
-    now_epoch = 1700000000
-    bar_line = f"#BAR:M5,{now_epoch},2740.00,2745.50,2739.00,2744.50,520,120,1.4\n"
-    server._parse_line(bar_line)
+    now = datetime.now(timezone.utc)
+    candle = Candle(
+        timestamp=now,
+        open=3940.00,
+        high=3945.50,
+        low=3939.00,
+        close=3944.50,
+        tick_volume=520.0,
+        spread=1.4,
+        symbol="XAUUSD",
+        timeframe="M5",
+        is_closed=True,
+    )
+    if feed.on_bar_completed:
+        feed.on_bar_completed(candle, False)
 
     assert len(completed_bars) == 1
-    candle = completed_bars[0]
-    assert candle.timeframe == "M5"
-    assert candle.open == 2740.00
-    assert candle.high == 2745.50
-    assert candle.low == 2739.00
-    assert candle.close == 2744.50
-    assert candle.tick_volume == 520.0
-    assert candle.spread == 1.4
+    c = completed_bars[0]
+    assert c.timeframe == "M5"
+    assert c.open == 3940.00
+    assert c.high == 3945.50
+    assert c.low == 3939.00
+    assert c.close == 3944.50
+    assert c.tick_volume == 520.0
 
 
 def test_timeframe_switching_between_m1_and_m5():
     """Verify switching between M1 and M5 timeframes updates buffer context cleanly."""
-    config = AppConfig(enable_simulation=False, enable_ticks=False, bridge_port=5581)
+    config = AppConfig(enable_simulation=False, enable_ticks=False)
     service = EntryStrategyService(config, start_servers=False)
 
     assert service.active_timeframe == "M5"

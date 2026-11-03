@@ -1,4 +1,4 @@
-"""Unified Entry Strategy Service coordinating Bridge, Patterns, and Telemetry."""
+"""Unified Entry Strategy Service coordinating Dukascopy Live Feed, Patterns, and Telemetry."""
 import logging
 import threading
 import time
@@ -8,7 +8,7 @@ from entrystrategy.config import AppConfig
 from entrystrategy.core.models import TickData, Candle, EntrySignal, SignalDirection, SignalStatus
 from entrystrategy.core.buffer import MarketBuffer
 from entrystrategy.engine.registry import PatternRegistry
-from entrystrategy.data.mt5_bridge import MT5BridgeServer, MT5NativePoller, MT5_PACKAGE_AVAILABLE
+from entrystrategy.data.dukascopy_feed import DukascopyFeed
 from entrystrategy.data.simulator import MarketSimulator
 
 logger = logging.getLogger("EntryStrategy.Service")
@@ -18,7 +18,7 @@ class EntryStrategyService:
     def __init__(self, config: Optional[AppConfig] = None, start_servers: bool = True):
         self.config = config or AppConfig()
         self.active_timeframe = getattr(self.config, "timeframe", "M5").upper()
-        self.enable_ticks = getattr(self.config, "enable_ticks", True)
+        self.enable_ticks = getattr(self.config, "enable_ticks", False)
 
         self.buffer = MarketBuffer(
             tick_capacity=self.config.tick_buffer_size,
@@ -34,60 +34,50 @@ class EntryStrategyService:
         self.total_sell_signals: int = 0
         self._lock = threading.RLock()
         
-        # Bridge Server (TCP Port 5558 for incoming EA streams)
-        self.bridge_server = MT5BridgeServer(
-            host=self.config.bridge_host,
-            port=self.config.bridge_port,
-            on_tick=self._on_tick_received,
-            on_bar_completed=self._on_bar_completed,
-            on_status_change=self._on_bridge_status_changed,
-        )
+        self.feed_connected = False
+        self.feed_status_text = "Initializing Dukascopy Live Feed..."
+        self.symbol = self.config.symbol
+        self.latest_price = getattr(self.config, "sim_base_price", 3950.0)
+        self.latest_spread = 1.4
 
-        # MT5 Native Direct Poller (Direct terminal API polling with auto-symbol discovery)
-        self.native_poller = MT5NativePoller(
-            preferred_symbol=self.config.symbol,
+        # Dukascopy ECN Live & Historical Ingestor
+        self.dukascopy_feed = DukascopyFeed(
+            symbol=self.symbol,
+            timeframe=self.active_timeframe,
+            warmup_candles=getattr(self.config, "dukascopy_warmup_candles", 100),
+            poll_interval_s=getattr(self.config, "dukascopy_poll_interval_s", 1.0),
             on_tick=self._on_tick_received,
             on_bar_completed=self._on_bar_completed,
-            on_status_change=self._on_native_status_changed,
+            on_status_change=self._on_feed_status_changed,
         )
         
-        # Simulator (Fallback when no live MT5 is available)
+        # Simulator (Fallback only when offline or testing)
         self.simulator = MarketSimulator(
-            base_price=self.config.sim_base_price,
-            interval_ms=self.config.sim_tick_interval_ms,
+            base_price=self.latest_price,
+            interval_ms=getattr(self.config, "sim_tick_interval_ms", 250),
             on_tick=self._on_sim_tick,
             on_bar=self._on_sim_bar,
         )
-        
-        self.bridge_connected = False
-        self.bridge_status_text = f"Listening on port {self.config.bridge_port}"
-        self.symbol = self.config.symbol
-        self.latest_price = self.config.sim_base_price
-        self.latest_spread = 1.4
 
         # Start servers
         if start_servers:
             self.start()
 
     def start(self):
-        self.bridge_server.start()
-        if MT5_PACKAGE_AVAILABLE:
-            self.native_poller.start()
-        if self.config.enable_simulation and not self.bridge_connected:
+        """Starts the Dukascopy feed and initial warmup."""
+        self.dukascopy_feed.start()
+        if self.config.enable_simulation and not self.feed_connected:
             logger.info("Starting background simulator (fallback)...")
             self.simulator.start()
 
     def stop(self):
+        """Stops the Dukascopy feed and simulator."""
         self.simulator.stop()
-        self.bridge_server.stop()
-        if hasattr(self, "native_poller"):
-            self.native_poller.stop()
+        self.dukascopy_feed.stop()
 
     def _on_tick_received(self, tick: TickData, is_history: bool = False):
-        # Real tick from MT5 (EA Bridge or Native Direct)
-        if not self.bridge_connected:
-            self.bridge_connected = True
-            # Stop simulator when real MT5 arrives
+        if not self.feed_connected:
+            self.feed_connected = True
             self.simulator.stop()
 
         self.latest_price = tick.mid
@@ -105,49 +95,38 @@ class EntryStrategyService:
             self._evaluate_patterns()
 
     def _on_bar_completed(self, candle: Candle, is_history: bool = False):
+        self.latest_price = candle.close
         self.buffer.add_completed_candle(candle)
         if not is_history:
             self._evaluate_patterns()
 
     def _on_sim_tick(self, tick: TickData):
-        if not self.bridge_connected:
+        if not self.feed_connected:
             self.latest_price = tick.mid
             self.latest_spread = tick.spread
             self.buffer.add_tick(tick)
-            self._evaluate_patterns()
+            if self.enable_ticks:
+                self._evaluate_patterns()
 
     def _on_sim_bar(self, candle: Candle):
-        if not self.bridge_connected:
+        if not self.feed_connected:
             self.buffer.add_completed_candle(candle)
             self._evaluate_patterns()
 
-    def _on_bridge_status_changed(self, connected: bool, message: str):
+    def _on_feed_status_changed(self, connected: bool, message: str, details: Optional[Dict[str, Any]] = None):
+        self.feed_connected = connected
+        self.feed_status_text = message
         if connected:
-            self.bridge_connected = True
-            self.bridge_status_text = message
             self.simulator.stop()
-        elif not (hasattr(self, "native_poller") and self.native_poller.connected):
-            self.bridge_connected = False
-            self.bridge_status_text = f"Listening on port {self.config.bridge_port}"
-            if self.config.enable_simulation:
-                self.simulator.start()
-
-    def _on_native_status_changed(self, connected: bool, message: str, symbol: str):
-        if connected:
-            self.bridge_connected = True
-            self.bridge_status_text = message
-            self.symbol = symbol
-            self.simulator.stop()
-        elif not self.bridge_server.client_connected:
-            self.bridge_connected = False
-            self.bridge_status_text = f"Listening on port {self.config.bridge_port}"
-            if self.config.enable_simulation:
-                self.simulator.start()
+            if details and "last_price" in details and details["last_price"] > 0:
+                self.latest_price = details["last_price"]
+            if details and "last_spread" in details and details["last_spread"] > 0:
+                self.latest_spread = details["last_spread"]
+        elif self.config.enable_simulation:
+            self.simulator.start()
 
     def _update_all_lifecycles(self, current_price: float, current_ts_ms: int, spread: float = 0.0):
-        """Updates lifecycle state (ACTIVE -> PENDING_CONFIRMATION -> CONFIRMED / INVALIDATED / EXPIRED)
-        for all tracked signals based on live market price and elapsed time.
-        """
+        """Updates lifecycle state for all tracked signals based on live price and elapsed time."""
         for sig in self.latest_signals_by_pattern.values():
             sig.update_lifecycle(current_price, current_ts_ms, spread)
 
@@ -168,10 +147,11 @@ class EntryStrategyService:
                         self.total_sell_signals += 1
 
     def set_timeframe(self, tf: str) -> Dict[str, Any]:
-        """Switches active candle analysis timeframe between M1 and M5."""
+        """Switches active candle analysis timeframe between M1 and M5 with instant Dukascopy sync."""
         tf_clean = tf.upper()
         if tf_clean not in ("M1", "M5"):
             return {"success": False, "error": f"Unsupported timeframe: {tf}"}
+        
         with self._lock:
             self.active_timeframe = tf_clean
             self.buffer.set_active_timeframe(tf_clean)
@@ -181,6 +161,13 @@ class EntryStrategyService:
                 if sig.is_alive:
                     sig.status = SignalStatus.EXPIRED
                     sig.status_reason = f"Perpindahan timeframe ke {tf_clean}"
+
+        # Sync historical candles for new timeframe from Dukascopy
+        warmup_bars = self.dukascopy_feed.set_timeframe(tf_clean)
+        if warmup_bars:
+            for bar in warmup_bars:
+                self.buffer.add_completed_candle(bar)
+
         self._evaluate_patterns()
         logger.info(f"Switched active timeframe to {self.active_timeframe} (Buffer candles: {self.buffer.total_candles})")
         return {"success": True, "timeframe": self.active_timeframe, "candle_count": self.buffer.total_candles}
@@ -243,7 +230,6 @@ class EntryStrategyService:
                         px_str = f"@{last_sig.trigger_price:.2f}"
 
                     elif last_sig.is_terminal:
-                        # Grace display period: remain visible for 8s so user sees why it ended
                         term_ts = last_sig.invalidated_time_ms or last_sig.expired_time_ms or last_sig.timestamp_ms
                         term_elapsed = max(0.0, (now_ms - term_ts) / 1000.0)
                         if term_elapsed <= 8.0:
@@ -275,27 +261,24 @@ class EntryStrategyService:
             active_buy = sum(1 for c in pattern_cards if c["active"] and c["direction"] == "BUY" and c["status"] in ("ACTIVE", "PENDING_CONFIRMATION", "CONFIRMED"))
             active_sell = sum(1 for c in pattern_cards if c["active"] and c["direction"] == "SELL" and c["status"] in ("ACTIVE", "PENDING_CONFIRMATION", "CONFIRMED"))
 
-            tps_val = self.bridge_server.ticks_last_sec
-            if tps_val == 0 and hasattr(self, "native_poller"):
-                tps_val = self.native_poller.ticks_last_sec
+            tot_ticks = self.dukascopy_feed.total_ticks_received if self.feed_connected else self.buffer.total_ticks
 
-            tot_ticks = self.bridge_server.total_ticks
-            if hasattr(self, "native_poller") and self.native_poller.total_ticks > tot_ticks:
-                tot_ticks = self.native_poller.total_ticks
-            if not self.bridge_connected:
-                tot_ticks = self.buffer.total_ticks
+            # Backward-compatible bridge object + feed object
+            feed_info = {
+                "connected": self.feed_connected,
+                "source": "DUKASCOPY_ECN",
+                "status": self.feed_status_text,
+                "symbol": self.symbol,
+                "price": round(self.latest_price, 2),
+                "spread": round(self.latest_spread, 2),
+                "tps": 1 if (self.enable_ticks and self.feed_connected) else 0,
+                "total_ticks": tot_ticks,
+                "total_candles": self.buffer.total_candles,
+            }
 
             return {
-                "bridge": {
-                    "connected": self.bridge_connected,
-                    "port": self.config.bridge_port,
-                    "status": self.bridge_status_text,
-                    "symbol": self.symbol,
-                    "price": round(self.latest_price, 2),
-                    "spread": round(self.latest_spread, 2),
-                    "tps": tps_val if self.enable_ticks else 0,
-                    "total_ticks": tot_ticks,
-                },
+                "bridge": feed_info,
+                "feed": feed_info,
                 "config": {
                     "timeframe": self.active_timeframe,
                     "enable_ticks": self.enable_ticks,
