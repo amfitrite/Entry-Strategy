@@ -2,7 +2,7 @@
 
 Verifies:
 1. ACTIVE: signal is born on pattern trigger, records price, time, direction, ID.
-2. PENDING CONFIRMATION: condition no longer present in tick buffer does not drop signal;
+2. PENDING CONFIRMATION: condition no longer present after candle close does not drop signal;
    transitions to PENDING_CONFIRMATION while waiting for follow-through.
 3. CONFIRMED: price follows direction (BUY goes up, SELL goes down).
 4. INVALIDATED: price breaches invalidation_price; terminal state reached.
@@ -96,7 +96,7 @@ def test_signal_confirmed_buy_and_sell():
     # SELL test
     sig_sell = EntrySignal(
         pattern_id=11,
-        family_name="Tick Momentum",
+        family_name="CHoCH (Change of Character)",
         direction=SignalDirection.SELL,
         reference_price=2740.0,
         trigger_price=2738.0,
