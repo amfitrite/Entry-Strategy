@@ -7,11 +7,11 @@ class AppConfig:
     # Dukascopy ECN Live Feed settings (Geneva, Swiss)
     symbol: str = "XAUUSD"
     timeframe: str = "M5"  # Default timeframe M5 (with M1 option)
-    enable_ticks: bool = False  # Pure candle M5 evaluation default; ticks can be toggled
+    enable_ticks: bool = False  # Deprecated compatibility flag; entry strategies are candle-only
     dukascopy_warmup_candles: int = 100  # Initial historical bar sync (100 bars)
     dukascopy_poll_interval_s: float = 1.0  # Live tick polling interval
     
-    # Tick & Candle buffers
+    # Quote telemetry & candle buffers
     tick_buffer_size: int = 2000
     candle_buffer_size: int = 300
     
