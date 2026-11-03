@@ -89,9 +89,9 @@ def test_patterns_evaluate_on_m5_candles_without_ticks():
     sig33 = p33.evaluate(buf_swg)
     assert sig33 is not None
     assert sig33.direction == SignalDirection.BUY
-    assert "Micro Swing High 5 Bar" in sig33.reasons[0]
+    assert "Close bullish" in sig33.reasons[0]
 
-    # 4. Test Pattern 40 (Hybrid Candle Synergy) on pure M5 candles
+    # 4. Test Pattern 40 (Candle Rejection Confluence) on pure M5 candles
     buf_hyb = MarketBuffer(enable_ticks=False, active_timeframe="M5")
     p40 = registry.get_pattern(40)
     # c1 is pin bar with long lower wick
@@ -104,7 +104,7 @@ def test_patterns_evaluate_on_m5_candles_without_ticks():
     sig40 = p40.evaluate(buf_hyb)
     assert sig40 is not None
     assert sig40.direction == SignalDirection.BUY
-    assert "Sinergi M5: Pin bar" in sig40.reasons[0]
+    assert "Lower rejection wick" in sig40.reasons[0]
 
 
 def test_dukascopy_feed_parses_m5_bar():
