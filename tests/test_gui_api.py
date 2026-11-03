@@ -144,3 +144,20 @@ def test_ui_template_tier_icons_and_apex_sorting():
     assert "compCandleConfirm" in html
     assert "compExecutionQuality" in html
 
+    # 5. Distinct lifecycle status colors, icons & classes
+    assert ".status-pending" in html
+    assert ".status-confirmed" in html
+    assert ".status-active" in html
+    assert ".status-invalidated" in html
+    assert ".status-expired" in html
+    assert "card-status-pending-confirmation" in html
+    assert "card-status-confirmed" in html
+    assert "kpiPending" in html
+    assert "btnHistFilterPending" in html
+    assert "⏳" in html, "⏳ Pending icon missing"
+    assert "✔" in html, "✔ Confirmed icon missing"
+    assert "🟢" in html, "🟢 Active icon missing"
+    assert "✖" in html, "✖ Invalidated icon missing"
+    assert "⏱" in html, "⏱ Expired icon missing"
+
+

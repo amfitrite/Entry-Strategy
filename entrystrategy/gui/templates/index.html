@@ -456,41 +456,77 @@
       text-transform: uppercase;
     }
 
-    /* Lifecycle Status Badges */
+    /* Lifecycle Status Badges - Vivid & Distinct Colors */
     .status-pill {
       font-size: 9.5px;
       font-weight: 800;
-      padding: 2px 7px;
+      padding: 2.5px 8px;
       border-radius: 4px;
-      letter-spacing: 0.3px;
+      letter-spacing: 0.4px;
       text-transform: uppercase;
       font-variant-numeric: tabular-nums;
+      display: inline-flex;
+      align-items: center;
+      gap: 3.5px;
+      white-space: nowrap;
+      line-height: 1.2;
     }
     .status-active {
-      background: rgba(16, 185, 129, 0.22);
-      color: #10b981;
-      border: 1px solid rgba(16, 185, 129, 0.5);
+      background: rgba(16, 185, 129, 0.24);
+      color: #34d399;
+      border: 1.5px solid #10b981;
+      box-shadow: 0 0 8px rgba(16, 185, 129, 0.35);
     }
     .status-pending {
-      background: rgba(245, 158, 11, 0.2);
-      color: #f59e0b;
-      border: 1px solid rgba(245, 158, 11, 0.5);
+      background: rgba(245, 158, 11, 0.28);
+      color: #fbbf24;
+      border: 1.5px solid #f59e0b;
+      box-shadow: 0 0 10px rgba(245, 158, 11, 0.4);
+      animation: pending-glow 2s infinite ease-in-out;
     }
     .status-confirmed {
-      background: rgba(59, 130, 246, 0.25);
-      color: #60a5fa;
-      border: 1px solid #3b82f6;
-      box-shadow: 0 0 8px rgba(59, 130, 246, 0.3);
+      background: rgba(6, 182, 212, 0.26);
+      color: #38bdf8;
+      border: 1.5px solid #06b6d4;
+      box-shadow: 0 0 10px rgba(6, 182, 212, 0.45);
     }
     .status-invalidated {
-      background: rgba(239, 68, 68, 0.2);
+      background: rgba(239, 68, 68, 0.25);
       color: #f87171;
-      border: 1px solid rgba(239, 68, 68, 0.5);
+      border: 1.5px solid #ef4444;
+      box-shadow: 0 0 8px rgba(239, 68, 68, 0.35);
     }
     .status-expired {
-      background: #232731;
-      color: #949ba4;
-      border: 1px solid #3e4451;
+      background: rgba(100, 116, 139, 0.22);
+      color: #94a3b8;
+      border: 1.5px solid #475569;
+    }
+
+    @keyframes pending-glow {
+      0%, 100% { border-color: #f59e0b; box-shadow: 0 0 8px rgba(245, 158, 11, 0.35); }
+      50% { border-color: #fbbf24; box-shadow: 0 0 14px rgba(251, 191, 36, 0.6); }
+    }
+
+    /* Signal Card Status Accents (Clear visual distinction on Radar) */
+    .signal-card.card-status-pending-confirmation {
+      border-top: 3px solid #f59e0b !important;
+      box-shadow: 0 0 12px rgba(245, 158, 11, 0.15);
+    }
+    .signal-card.card-status-confirmed {
+      border-top: 3px solid #06b6d4 !important;
+      box-shadow: 0 0 14px rgba(6, 182, 212, 0.25);
+    }
+    .signal-card.card-status-invalidated {
+      border-top: 3px solid #ef4444 !important;
+      opacity: 0.85;
+    }
+    .signal-card.card-status-expired {
+      border-top: 3px solid #475569 !important;
+      opacity: 0.65;
+      filter: grayscale(25%);
+    }
+    .signal-card.card-status-active {
+      border-top: 3px solid #10b981 !important;
     }
 
     .time-badge {
@@ -938,8 +974,9 @@
       color: #f8fafc;
       font-family: 'Consolas', 'SF Mono', monospace;
     }
-    .kpi-card.kpi-confirmed .kpi-val { color: #10b981; }
-    .kpi-card.kpi-invalidated .kpi-val { color: #ef4444; }
+    .kpi-card.kpi-pending .kpi-val { color: #fbbf24; }
+    .kpi-card.kpi-confirmed .kpi-val { color: #38bdf8; }
+    .kpi-card.kpi-invalidated .kpi-val { color: #f87171; }
     .kpi-card.kpi-expired .kpi-val { color: #94a3b8; }
 
     /* History Table */
@@ -1307,7 +1344,8 @@
       <!-- History Status, TF & Grade Filter Group (Active on History View) -->
       <div class="filter-group" id="historyFilterGroup" style="display:none; flex-wrap:wrap; gap:4px;">
         <button class="filter-btn active" id="btnHistFilterAll" onclick="setHistoryFilter('ALL', this)">Semua Log (0)</button>
-        <button class="filter-btn" id="btnHistFilterConf" onclick="setHistoryFilter('CONFIRMED', this)" style="color:#10b981;">✔ Confirmed (0)</button>
+        <button class="filter-btn" id="btnHistFilterPending" onclick="setHistoryFilter('PENDING_CONFIRMATION', this)" style="color:#fbbf24;">⏳ Pending (0)</button>
+        <button class="filter-btn" id="btnHistFilterConf" onclick="setHistoryFilter('CONFIRMED', this)" style="color:#38bdf8;">✔ Confirmed (0)</button>
         <button class="filter-btn" id="btnHistFilterInval" onclick="setHistoryFilter('INVALIDATED', this)" style="color:#ef4444;">✖ Invalidated (0)</button>
         <button class="filter-btn" id="btnHistFilterExp" onclick="setHistoryFilter('EXPIRED', this)" style="color:#94a3b8;">⏱ Expired (0)</button>
         <span style="color:#475569; font-size:12px; margin:0 2px;">|</span>
@@ -1386,17 +1424,21 @@
             <span style="color:#f472b6;" id="kpiTfM15">M15: 0</span>
           </div>
         </div>
-        <div class="kpi-card kpi-confirmed">
+        <div class="kpi-card kpi-pending" style="border-left: 3px solid #f59e0b;">
+          <span class="kpi-label">⏳ STATUS PENDING</span>
+          <span class="kpi-val" id="kpiPending" style="color:#fbbf24;">0 <small id="kpiPendingPct" style="font-size:11px; opacity:0.8;">(0%)</small></span>
+        </div>
+        <div class="kpi-card kpi-confirmed" style="border-left: 3px solid #06b6d4;">
           <span class="kpi-label">✔ STATUS CONFIRMED</span>
-          <span class="kpi-val" id="kpiConfirmed">0 <small id="kpiConfirmedPct" style="font-size:11px; opacity:0.8;">(0%)</small></span>
+          <span class="kpi-val" id="kpiConfirmed" style="color:#38bdf8;">0 <small id="kpiConfirmedPct" style="font-size:11px; opacity:0.8;">(0%)</small></span>
         </div>
-        <div class="kpi-card kpi-invalidated">
+        <div class="kpi-card kpi-invalidated" style="border-left: 3px solid #ef4444;">
           <span class="kpi-label">✖ STATUS INVALIDATED</span>
-          <span class="kpi-val" id="kpiInvalidated">0 <small id="kpiInvalidatedPct" style="font-size:11px; opacity:0.8;">(0%)</small></span>
+          <span class="kpi-val" id="kpiInvalidated" style="color:#f87171;">0 <small id="kpiInvalidatedPct" style="font-size:11px; opacity:0.8;">(0%)</small></span>
         </div>
-        <div class="kpi-card kpi-expired">
+        <div class="kpi-card kpi-expired" style="border-left: 3px solid #64748b;">
           <span class="kpi-label">⏱ STATUS EXPIRED</span>
-          <span class="kpi-val" id="kpiExpired">0 <small id="kpiExpiredPct" style="font-size:11px; opacity:0.8;">(0%)</small></span>
+          <span class="kpi-val" id="kpiExpired" style="color:#94a3b8;">0 <small id="kpiExpiredPct" style="font-size:11px; opacity:0.8;">(0%)</small></span>
         </div>
       </div>
 
@@ -1737,10 +1779,12 @@
 
       // KPI Counters calculation
       const total = historySignals.length;
+      const pendingCnt = historySignals.filter(s => (s.status || '').toUpperCase() === 'PENDING_CONFIRMATION').length;
       const confCnt = historySignals.filter(s => (s.status || '').toUpperCase() === 'CONFIRMED').length;
       const invalCnt = historySignals.filter(s => (s.status || '').toUpperCase() === 'INVALIDATED').length;
       const expCnt = historySignals.filter(s => (s.status || '').toUpperCase() === 'EXPIRED').length;
 
+      const pendingPct = total > 0 ? Math.round((pendingCnt / total) * 100) : 0;
       const confPct = total > 0 ? Math.round((confCnt / total) * 100) : 0;
       const invalPct = total > 0 ? Math.round((invalCnt / total) * 100) : 0;
       const expPct = total > 0 ? Math.round((expCnt / total) * 100) : 0;
@@ -1759,11 +1803,13 @@
       const tfM15Cnt = historySignals.filter(s => (s.grade_timeframe || 'M5').toUpperCase() === 'M15').length;
 
       const kpiTot = document.getElementById('kpiTotalSignals');
+      const kpiPending = document.getElementById('kpiPending');
       const kpiConf = document.getElementById('kpiConfirmed');
       const kpiInval = document.getElementById('kpiInvalidated');
       const kpiExp = document.getElementById('kpiExpired');
 
       if (kpiTot) kpiTot.innerText = total;
+      if (kpiPending) kpiPending.innerHTML = `${pendingCnt} <small style="font-size:11px; opacity:0.8;">(${pendingPct}%)</small>`;
       if (kpiConf) kpiConf.innerHTML = `${confCnt} <small style="font-size:11px; opacity:0.8;">(${confPct}%)</small>`;
       if (kpiInval) kpiInval.innerHTML = `${invalCnt} <small style="font-size:11px; opacity:0.8;">(${invalPct}%)</small>`;
       if (kpiExp) kpiExp.innerHTML = `${expCnt} <small style="font-size:11px; opacity:0.8;">(${expPct}%)</small>`;
@@ -1792,10 +1838,12 @@
 
       // Update Filter buttons text with count
       const bAll = document.getElementById('btnHistFilterAll');
+      const bPending = document.getElementById('btnHistFilterPending');
       const bConf = document.getElementById('btnHistFilterConf');
       const bInval = document.getElementById('btnHistFilterInval');
       const bExp = document.getElementById('btnHistFilterExp');
       if (bAll) bAll.innerText = `Semua Log (${total})`;
+      if (bPending) bPending.innerText = `⏳ Pending (${pendingCnt})`;
       if (bConf) bConf.innerText = `✔ Confirmed (${confCnt})`;
       if (bInval) bInval.innerText = `✖ Invalidated (${invalCnt})`;
       if (bExp) bExp.innerText = `⏱ Expired (${expCnt})`;
@@ -1820,10 +1868,25 @@
 
         const stVal = (sig.status || 'ACTIVE').toUpperCase();
         let stClass = 'status-active';
-        if (stVal === 'CONFIRMED') stClass = 'status-confirmed';
-        else if (stVal === 'INVALIDATED') stClass = 'status-invalidated';
-        else if (stVal === 'EXPIRED') stClass = 'status-expired';
-        else if (stVal === 'PENDING_CONFIRMATION') stClass = 'status-pending';
+        let stIcon = '🟢';
+        let stLabel = 'ACTIVE';
+        if (stVal === 'CONFIRMED') {
+          stClass = 'status-confirmed';
+          stIcon = '✔';
+          stLabel = 'CONFIRMED';
+        } else if (stVal === 'PENDING_CONFIRMATION') {
+          stClass = 'status-pending';
+          stIcon = '⏳';
+          stLabel = 'PENDING';
+        } else if (stVal === 'INVALIDATED') {
+          stClass = 'status-invalidated';
+          stIcon = '✖';
+          stLabel = 'INVALIDATED';
+        } else if (stVal === 'EXPIRED') {
+          stClass = 'status-expired';
+          stIcon = '⏱';
+          stLabel = 'EXPIRED';
+        }
 
         const gTier = (sig.grade || 'B').toUpperCase();
         const gScore = sig.grade_score != null ? Number(sig.grade_score).toFixed(1) : '-';
@@ -1849,7 +1912,7 @@
             <td class="history-px">${trigPx}</td>
             <td class="history-px" style="color:#98c379;">${execPx}</td>
             <td class="history-px" style="color:#e06c75;">${invalPx}</td>
-            <td style="text-align:center;"><span class="status-pill ${stClass}">${stVal}</span></td>
+            <td style="text-align:center;"><span class="status-pill ${stClass}">${stIcon} ${stLabel}</span></td>
             <td style="text-align:center;">
               <button class="btn-view-detail" onclick="event.stopPropagation(); openSignalDetailModal(${sig.pattern_id}, '${safeEventId}')">Detail</button>
             </td>
@@ -1908,13 +1971,23 @@
       const statusBadge = document.getElementById('modalStatusBadge');
       const statusReason = document.getElementById('modalStatusReason');
       if (statusBadge) {
-        statusBadge.innerText = stVal;
-        statusBadge.className = 'status-pill ' + (
-          stVal === 'CONFIRMED' ? 'status-confirmed' :
-          stVal === 'PENDING_CONFIRMATION' ? 'status-pending' :
-          stVal === 'INVALIDATED' ? 'status-invalidated' :
-          stVal === 'EXPIRED' ? 'status-expired' : 'status-active'
-        );
+        let stClass = 'status-active';
+        let stLabel = '🟢 ACTIVE';
+        if (stVal === 'CONFIRMED') {
+          stClass = 'status-confirmed';
+          stLabel = '✔ CONFIRMED';
+        } else if (stVal === 'PENDING_CONFIRMATION') {
+          stClass = 'status-pending';
+          stLabel = '⏳ PENDING';
+        } else if (stVal === 'INVALIDATED') {
+          stClass = 'status-invalidated';
+          stLabel = '✖ INVALIDATED';
+        } else if (stVal === 'EXPIRED') {
+          stClass = 'status-expired';
+          stLabel = '⏱ EXPIRED';
+        }
+        statusBadge.className = 'status-pill ' + stClass;
+        statusBadge.innerHTML = stLabel;
       }
       if (statusReason) {
         statusReason.innerText = sig.status_reason || 'Kondisi entry pola terpenuhi';
@@ -2055,7 +2128,9 @@
 
       grid.innerHTML = matched.map(p => {
         const isBuy = p.direction === 'BUY';
-        const cardClass = isBuy ? 'signal-card buy-card' : 'signal-card sell-card';
+        const statusVal = (p.status || (p.last_signal && p.last_signal.status) || 'ACTIVE').toUpperCase();
+        const statusSlug = statusVal.toLowerCase().replace(/_/g, '-');
+        const cardClass = (isBuy ? 'signal-card buy-card' : 'signal-card sell-card') + ` card-status-${statusSlug}`;
         const dirLabel = isBuy ? '▲ BUY' : '▼ SELL';
         
         let flashClass = '';
@@ -2067,24 +2142,28 @@
           }
         }
 
-        // Lifecycle status badge determination
-        const statusVal = (p.status || (p.last_signal && p.last_signal.status) || 'ACTIVE').toUpperCase();
+        // Lifecycle status badge determination with distinct icons & colors
         let statusBadgeClass = 'status-active';
         let statusLabel = 'ACTIVE';
+        let statusIcon = '🟢';
         if (statusVal === 'PENDING_CONFIRMATION') {
           statusBadgeClass = 'status-pending';
           statusLabel = 'PENDING';
+          statusIcon = '⏳';
         } else if (statusVal === 'CONFIRMED') {
           statusBadgeClass = 'status-confirmed';
           statusLabel = 'CONFIRMED';
+          statusIcon = '✔';
         } else if (statusVal === 'INVALIDATED') {
           statusBadgeClass = 'status-invalidated';
           statusLabel = 'INVALIDATED';
+          statusIcon = '✖';
         } else if (statusVal === 'EXPIRED') {
           statusBadgeClass = 'status-expired';
           statusLabel = 'EXPIRED';
+          statusIcon = '⏱';
         }
-        const statusBadgeHtml = `<span class="status-pill ${statusBadgeClass}">${statusLabel}</span>`;
+        const statusBadgeHtml = `<span class="status-pill ${statusBadgeClass}">${statusIcon} ${statusLabel}</span>`;
 
         // Technical Grade & Breakdown
         const sig = p.last_signal || {};
@@ -2102,11 +2181,14 @@
         let snippetPrefix = '<span class="check">[✓]</span>';
         let snippetText = "Kondisi matematis terpenuhi penuh.";
         if (statusVal === 'INVALIDATED') {
-          snippetPrefix = '<span style="color:var(--accent-red); font-weight:800; margin-right:4px;">[✕]</span>';
+          snippetPrefix = '<span style="color:#f87171; font-weight:800; margin-right:4px;">[✖]</span>';
           snippetText = p.status_reason || (p.last_signal && p.last_signal.status_reason) || "Level invalidasi tertembus.";
         } else if (statusVal === 'CONFIRMED') {
-          snippetPrefix = '<span style="color:#60a5fa; font-weight:800; margin-right:4px;">[★]</span>';
+          snippetPrefix = '<span style="color:#38bdf8; font-weight:800; margin-right:4px;">[✔]</span>';
           snippetText = p.status_reason || (p.last_signal && p.last_signal.status_reason) || "Pergerakan harga terkonfirmasi.";
+        } else if (statusVal === 'PENDING_CONFIRMATION') {
+          snippetPrefix = '<span style="color:#fbbf24; font-weight:800; margin-right:4px;">[⏳]</span>';
+          snippetText = p.status_reason || (p.last_signal && p.last_signal.status_reason) || "Menunggu candle konfirmasi penutupan...";
         } else if (statusVal === 'EXPIRED') {
           snippetPrefix = '<span style="color:#94a3b8; font-weight:800; margin-right:4px;">[⏱]</span>';
           snippetText = p.status_reason || (p.last_signal && p.last_signal.status_reason) || "Batas usia sinyal tercapai.";
@@ -2188,13 +2270,23 @@
       const statusBadge = document.getElementById('modalStatusBadge');
       const statusReason = document.getElementById('modalStatusReason');
       if (statusBadge) {
-        statusBadge.innerText = stVal;
-        statusBadge.className = 'status-pill ' + (
-          stVal === 'CONFIRMED' ? 'status-confirmed' :
-          stVal === 'PENDING_CONFIRMATION' ? 'status-pending' :
-          stVal === 'INVALIDATED' ? 'status-invalidated' :
-          stVal === 'EXPIRED' ? 'status-expired' : 'status-active'
-        );
+        let stClass = 'status-active';
+        let stLabel = '🟢 ACTIVE';
+        if (stVal === 'CONFIRMED') {
+          stClass = 'status-confirmed';
+          stLabel = '✔ CONFIRMED';
+        } else if (stVal === 'PENDING_CONFIRMATION') {
+          stClass = 'status-pending';
+          stLabel = '⏳ PENDING';
+        } else if (stVal === 'INVALIDATED') {
+          stClass = 'status-invalidated';
+          stLabel = '✖ INVALIDATED';
+        } else if (stVal === 'EXPIRED') {
+          stClass = 'status-expired';
+          stLabel = '⏱ EXPIRED';
+        }
+        statusBadge.className = 'status-pill ' + stClass;
+        statusBadge.innerHTML = stLabel;
       }
       if (statusReason) {
         statusReason.innerText = sig.status_reason || p.status_reason || 'Kondisi entry pola terpenuhi';
@@ -2404,6 +2496,7 @@
             if (prefs.history_filter && prefs.history_filter !== currentHistoryFilter) {
               const btn = document.getElementById(
                 prefs.history_filter === 'CONFIRMED' ? 'btnHistFilterConf' :
+                prefs.history_filter === 'PENDING_CONFIRMATION' ? 'btnHistFilterPending' :
                 prefs.history_filter === 'INVALIDATED' ? 'btnHistFilterInval' :
                 prefs.history_filter === 'EXPIRED' ? 'btnHistFilterExp' : 'btnHistFilterAll'
               );
