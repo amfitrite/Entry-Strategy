@@ -486,16 +486,14 @@ def test_pola_12_bos_requires_continuation_of_hh_hl_structure():
 def test_pola_13_displacement_is_closed_candle_only():
     registry = PatternRegistry()
     p = registry.get_pattern(13)
-    now = datetime.now(timezone.utc)
-    buf = MarketBuffer()
-    for i, row in enumerate([
+    rows = [
         (100.0, 104.2, 99.8, 103.8),
         (99.6, 100.2, 99.3, 99.9),
         (99.4, 100.0, 99.1, 99.7),
         (99.5, 100.0, 99.2, 99.8),
         (99.4, 99.9, 99.1, 99.6),
-    ][::-1]):
-        buf.add_completed_candle(create_candle(now - timedelta(minutes=i), *row))
+    ]
+    buf = _latest_first_buffer(rows)
     sig = p.evaluate(buf)
     assert sig is not None
     assert sig.direction == SignalDirection.BUY
@@ -610,3 +608,22 @@ def test_all_40_candle_patterns_evaluate_safely_without_tick_input():
         price = c
     fired = registry.evaluate_all(buf)
     assert isinstance(fired, list)
+
+
+def test_pola_20_volatility_burst_uses_ohlc_even_when_volume_is_missing():
+    registry = PatternRegistry()
+    p = registry.get_pattern(20)
+    now = datetime.now(timezone.utc)
+    buf = MarketBuffer(enable_ticks=False)
+    bars = [
+        Candle(now - timedelta(minutes=3), 100.0, 101.0, 99.8, 100.8, tick_volume=0, timeframe="M5"),
+        Candle(now - timedelta(minutes=2), 100.8, 101.4, 100.5, 101.0, tick_volume=0, timeframe="M5"),
+        Candle(now - timedelta(minutes=1), 101.0, 101.5, 100.7, 101.1, tick_volume=0, timeframe="M5"),
+        Candle(now, 101.1, 103.5, 101.0, 103.3, tick_volume=0, timeframe="M5"),
+    ]
+    for bar in bars:
+        buf.add_completed_candle(bar)
+    sig = p.evaluate(buf)
+    assert sig is not None
+    assert sig.direction == SignalDirection.BUY
+    assert sig.metrics["body_ratio"] >= 0.65
