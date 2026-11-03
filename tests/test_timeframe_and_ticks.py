@@ -199,3 +199,20 @@ def test_tick_strategy_toggle_is_permanently_removed():
     assert service.buffer.latest_tick is None
     assert service.buffer.get_recent_ticks() == []
     service.stop()
+
+
+def test_unclosed_candle_never_enters_strategy_buffer():
+    buf = MarketBuffer(enable_ticks=False, active_timeframe="M1")
+    now = datetime.now(timezone.utc)
+    unfinished = Candle(
+        timestamp=now,
+        open=2740.0,
+        high=2750.0,
+        low=2739.0,
+        close=2749.0,
+        timeframe="M1",
+        is_closed=False,
+    )
+    buf.add_completed_candle(unfinished)
+    assert buf.get_recent_candles(10) == []
+    assert buf.total_candles_m1 == 0
