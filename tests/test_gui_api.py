@@ -162,6 +162,12 @@ def test_ui_template_tier_icons_and_apex_sorting():
     assert "✖" in html, "✖ Invalidated icon missing"
     assert "⏱" in html, "⏱ Expired icon missing"
 
+    # 6. Distinct tier outer glows on cards and badges
+    for tier_slug in ["sss", "ss", "s", "a", "b", "c", "d"]:
+        assert f".signal-card.card-tier-{tier_slug}" in html, f"Card tier outer glow missing for {tier_slug}"
+        assert f".grade-{tier_slug}" in html, f"Grade badge missing for {tier_slug}"
+        assert f"tr.row-tier-{tier_slug}" in html, f"History row tier accent missing for {tier_slug}"
+
 
 def test_gui_window_geometry_sanitization():
     """Verify that off-screen minimized coordinates (-32000) are never captured or loaded."""
