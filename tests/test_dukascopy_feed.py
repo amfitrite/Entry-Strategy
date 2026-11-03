@@ -116,8 +116,14 @@ def test_execution_price_bid_ask_spread_calculation():
     exec_buy = buf.get_execution_price(SignalDirection.BUY, ref_close)
     exec_sell = buf.get_execution_price(SignalDirection.SELL, ref_close)
 
-    assert exec_buy == round(3952.00 + 0.30, 2)
-    assert exec_sell == 3952.00
+    # A fresh quote is the estimated fill source: BUY at Ask, SELL at Bid.
+    assert exec_buy == 3950.30
+    assert exec_sell == 3950.00
+
+    # Without a fresh quote, candle-only mode falls back to reference + spread.
+    candle_only = MarketBuffer(enable_ticks=False)
+    assert candle_only.get_execution_price(SignalDirection.BUY, ref_close) == 3952.25
+    assert candle_only.get_execution_price(SignalDirection.SELL, ref_close) == 3952.00
 
 
 def test_patterns_pure_candle_evaluation_in_candle_only_mode():
@@ -263,8 +269,9 @@ def test_p0_execution_price_spread_adjustment():
 
     sig_buy = next((s for s in signals if s.direction == SignalDirection.BUY), None)
     assert sig_buy is not None
-    # BUY: execution price = trigger_price + 0.35
-    expected_exec_buy = round(sig_buy.trigger_price + 0.35, 2)
+    # A fresh bid/ask quote determines the estimated fill independently of
+    # the historical candle trigger price: BUY uses Ask.
+    expected_exec_buy = 3950.35
     assert sig_buy.execution_price == expected_exec_buy
     
     # Test dictionary serialization carries execution_price
@@ -272,9 +279,9 @@ def test_p0_execution_price_spread_adjustment():
     assert d["execution_price"] == expected_exec_buy
     assert d["trigger_price"] == round(sig_buy.trigger_price, 2)
 
-    # Now test SELL execution price
+    # Now test SELL execution price: fresh quote Bid, with no spread added.
     exec_sell = buf.get_execution_price(SignalDirection.SELL, 3940.00)
-    assert exec_sell == 3940.00  # SELL fills at Bid without adding spread
+    assert exec_sell == 3950.00
 
 
 def test_p1_service_timeframe_isolation_evaluation():
