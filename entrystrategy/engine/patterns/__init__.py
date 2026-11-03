@@ -39,7 +39,7 @@ from entrystrategy.engine.patterns.hybrid import (
     MomentumExhaustionPattern,
     VReversalPattern,
     InvertedVReversalPattern,
-    HybridTickCandlePattern,
+    CandleRejectionConfluencePattern,
 )
 from entrystrategy.engine.patterns.swing_geometry import (
     MicroDoubleTopPattern,
@@ -84,7 +84,7 @@ __all__ = [
     "MomentumExhaustionPattern",
     "VReversalPattern",
     "InvertedVReversalPattern",
-    "HybridTickCandlePattern",
+    "CandleRejectionConfluencePattern",
     "MicroDoubleTopPattern",
     "MicroDoubleBottomPattern",
     "MicroSwingBreakPattern",
