@@ -43,7 +43,7 @@ class MicroDoubleTopPattern(BasePattern):
                         triggered = True
                     elif not tick and c0.is_bearish and c0.close < (p2 - 0.15):
                         trig_px = round(c0.close, 2)
-                        ts = int(c0.timestamp.timestamp() * 1000)
+                        ts = buffer.current_time_ms
                         event_id = f"m5_double_top_{int(c0.timestamp.timestamp())}_{round(p2, 2)}"
                         triggered = True
 
@@ -110,7 +110,7 @@ class MicroDoubleBottomPattern(BasePattern):
                         triggered = True
                     elif not tick and c0.is_bullish and c0.close > (b2 + 0.15):
                         trig_px = round(c0.close, 2)
-                        ts = int(c0.timestamp.timestamp() * 1000)
+                        ts = buffer.current_time_ms
                         event_id = f"m5_double_bottom_{int(c0.timestamp.timestamp())}_{round(b2, 2)}"
                         triggered = True
 
@@ -167,7 +167,7 @@ class MicroSwingBreakPattern(BasePattern):
             ref_px = round(swing_high, 2)
             trig_px = round(tick.ask if tick else c0.close, 2)
             inval_px = round(swing_low, 2)
-            ts = tick.ts_ms if tick else int(c0.timestamp.timestamp() * 1000)
+            ts = tick.ts_ms if tick else buffer.current_time_ms
             event_id = f"swing_break_buy_{ts}_{ref_px}"
             if self._is_event_deduplicated(event_id):
                 return None
@@ -193,7 +193,7 @@ class MicroSwingBreakPattern(BasePattern):
             ref_px = round(swing_low, 2)
             trig_px = round(tick.bid if tick else c0.close, 2)
             inval_px = round(swing_high, 2)
-            ts = tick.ts_ms if tick else int(c0.timestamp.timestamp() * 1000)
+            ts = tick.ts_ms if tick else buffer.current_time_ms
             event_id = f"swing_break_sell_{ts}_{ref_px}"
             if self._is_event_deduplicated(event_id):
                 return None
@@ -313,7 +313,7 @@ class MicroSwingFailurePattern(BasePattern):
                     phenomenon=self.phenomenon,
                     event_id=event_id,
                     price=trig_px,
-                    timestamp_ms=int(c0.timestamp.timestamp() * 1000),
+                    timestamp_ms=buffer.current_time_ms,
                     reasons=[
                         f"Kegagalan Tembus Swing High ({ref_px:.2f}) pada Bar M5",
                         f"Uji coba breakout ditolak, harga terseret turun ke {trig_px:.2f}",
@@ -337,7 +337,7 @@ class MicroSwingFailurePattern(BasePattern):
                     phenomenon=self.phenomenon,
                     event_id=event_id,
                     price=trig_px,
-                    timestamp_ms=int(c0.timestamp.timestamp() * 1000),
+                    timestamp_ms=buffer.current_time_ms,
                     reasons=[
                         f"Kegagalan Tembus Swing Low ({ref_px:.2f}) pada Bar M5",
                         f"Uji coba breakdown ditolak, harga memantul naik ke {trig_px:.2f}",
@@ -381,7 +381,7 @@ class ThreePushPattern(BasePattern):
                 ref_px = round(h1, 2)
                 trig_px = round(tick.bid if tick else c0.close, 2)
                 inval_px = round(h1 + 0.15, 2)
-                ts = tick.ts_ms if tick else int(c0.timestamp.timestamp() * 1000)
+                ts = tick.ts_ms if tick else buffer.current_time_ms
                 event_id = f"three_push_sell_{ts}_{ref_px}"
                 if not self._is_event_deduplicated(event_id):
                     return EntrySignal(
@@ -414,7 +414,7 @@ class ThreePushPattern(BasePattern):
                 ref_px = round(l1, 2)
                 trig_px = round(tick.ask if tick else c0.close, 2)
                 inval_px = round(l1 - 0.15, 2)
-                ts = tick.ts_ms if tick else int(c0.timestamp.timestamp() * 1000)
+                ts = tick.ts_ms if tick else buffer.current_time_ms
                 event_id = f"three_push_buy_{ts}_{ref_px}"
                 if not self._is_event_deduplicated(event_id):
                     return EntrySignal(

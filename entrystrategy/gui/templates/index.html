@@ -1015,8 +1015,11 @@
             </div>
           </div>
           <div class="summary-item">
-            <span class="summary-label">Trigger Price (Eksekusi)</span>
-            <span class="summary-val" id="modalPrice">2745.20</span>
+            <span class="summary-label">Trigger Price / Est Fill</span>
+            <div style="display:flex; align-items:baseline; gap:6px;">
+              <span class="summary-val" id="modalPrice">2745.20</span>
+              <span id="modalExecPrice" style="font-size:11px; color:#98c379; font-weight:600;">(Fill: 2745.50)</span>
+            </div>
           </div>
           <div class="summary-item">
             <span class="summary-label">Reference Price (Anchor)</span>
@@ -1216,7 +1219,18 @@
       dirEl.className = 'summary-val ' + (sig.direction === 'BUY' ? 'buy' : 'sell');
 
       document.getElementById('modalRoleBadge').innerText = sig.pattern_role || p.role || 'ENTRY';
-      document.getElementById('modalPrice').innerText = (sig.trigger_price != null ? sig.trigger_price : sig.price).toFixed(2);
+      const trigPx = (sig.trigger_price != null ? sig.trigger_price : sig.price);
+      document.getElementById('modalPrice').innerText = trigPx != null ? trigPx.toFixed(2) : '-';
+      const execPx = sig.execution_price != null ? sig.execution_price : trigPx;
+      const modalExecEl = document.getElementById('modalExecPrice');
+      if (modalExecEl) {
+        if (execPx != null) {
+          modalExecEl.innerText = `(Fill: ${execPx.toFixed(2)})`;
+          modalExecEl.style.display = 'inline';
+        } else {
+          modalExecEl.style.display = 'none';
+        }
+      }
       document.getElementById('modalRefPrice').innerText = sig.reference_price != null ? sig.reference_price.toFixed(2) : '-';
       document.getElementById('modalInvalPrice').innerText = sig.invalidation_price != null ? sig.invalidation_price.toFixed(2) : '-';
       document.getElementById('modalTime').innerText = sig.time_str || new Date(sig.timestamp_ms).toLocaleTimeString();

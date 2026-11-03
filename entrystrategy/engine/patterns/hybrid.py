@@ -102,7 +102,7 @@ class BreakoutPattern(BasePattern):
                         phenomenon=self.phenomenon,
                         event_id=event_id,
                         price=trig_px,
-                        timestamp_ms=int(c0.timestamp.timestamp() * 1000),
+                        timestamp_ms=buffer.current_time_ms,
                         reasons=[
                             f"Breakout High Candle C[1] M5: Penutupan ({trig_px:.2f}) > High ({ref_px:.2f})",
                             f"Penembusan bar bullish +{c0.close - c1.high:.2f} pts terkonfirmasi",
@@ -126,7 +126,7 @@ class BreakoutPattern(BasePattern):
                         phenomenon=self.phenomenon,
                         event_id=event_id,
                         price=trig_px,
-                        timestamp_ms=int(c0.timestamp.timestamp() * 1000),
+                        timestamp_ms=buffer.current_time_ms,
                         reasons=[
                             f"Breakout Low Candle C[1] M5: Penutupan ({trig_px:.2f}) < Low ({ref_px:.2f})",
                             f"Penembusan bar bearish {c0.close - c1.low:.2f} pts terkonfirmasi",
@@ -235,7 +235,7 @@ class FailedBreakoutPattern(BasePattern):
                         phenomenon=self.phenomenon,
                         event_id=event_id,
                         price=trig_px,
-                        timestamp_ms=int(c0.timestamp.timestamp() * 1000),
+                        timestamp_ms=buffer.current_time_ms,
                         reasons=[
                             f"Liquidity Sweep Bawah: Ekor C[0] ({c0.low:.2f}) menyapu likuiditas di bawah Swing Low C[1] ({ref_px:.2f})",
                             f"Reclaim Terkonfirmasi: Penutupan C[0] ({trig_px:.2f}) kembali ke atas level dengan candle bullish",
@@ -260,7 +260,7 @@ class FailedBreakoutPattern(BasePattern):
                         phenomenon=self.phenomenon,
                         event_id=event_id,
                         price=trig_px,
-                        timestamp_ms=int(c0.timestamp.timestamp() * 1000),
+                        timestamp_ms=buffer.current_time_ms,
                         reasons=[
                             f"Liquidity Sweep Atas: Ekor C[0] ({c0.high:.2f}) menyapu likuiditas di atas Swing High C[1] ({ref_px:.2f})",
                             f"Reclaim Terkonfirmasi: Penutupan C[0] ({trig_px:.2f}) kembali ke bawah level dengan candle bearish",
@@ -373,7 +373,7 @@ class MicroPullbackPattern(BasePattern):
                             phenomenon=self.phenomenon,
                             event_id=event_id,
                             price=trig_px,
-                            timestamp_ms=int(c0.timestamp.timestamp() * 1000),
+                            timestamp_ms=buffer.current_time_ms,
                             reasons=[
                                 f"Micro Pullback M5: Ekor menguji area 50% body impuls C[1] ({ref_px:.2f})",
                                 f"Harga memantul naik ditutup di {trig_px:.2f} melanjutkan tren bullish",
@@ -399,7 +399,7 @@ class MicroPullbackPattern(BasePattern):
                             phenomenon=self.phenomenon,
                             event_id=event_id,
                             price=trig_px,
-                            timestamp_ms=int(c0.timestamp.timestamp() * 1000),
+                            timestamp_ms=buffer.current_time_ms,
                             reasons=[
                                 f"Micro Pullback M5: Ekor menguji area 50% body impuls C[1] ({ref_px:.2f})",
                                 f"Harga tertekan turun ditutup di {trig_px:.2f} melanjutkan tren bearish",
@@ -506,7 +506,7 @@ class MicroTrendReversalPattern(BasePattern):
                         phenomenon=self.phenomenon,
                         event_id=event_id,
                         price=trig_px,
-                        timestamp_ms=int(c0.timestamp.timestamp() * 1000),
+                        timestamp_ms=buffer.current_time_ms,
                         reasons=[
                             f"Micro Trend Reversal Bullish M5: Lower highs diimbangi Higher Low di C[1]",
                             f"Candle C[0] ({trig_px:.2f}) menembus swing high C[1] ({ref_px:.2f})",
@@ -531,7 +531,7 @@ class MicroTrendReversalPattern(BasePattern):
                         phenomenon=self.phenomenon,
                         event_id=event_id,
                         price=trig_px,
-                        timestamp_ms=int(c0.timestamp.timestamp() * 1000),
+                        timestamp_ms=buffer.current_time_ms,
                         reasons=[
                             f"Micro Trend Reversal Bearish M5: Higher lows diimbangi Lower High di C[1]",
                             f"Candle C[0] ({trig_px:.2f}) menembus swing low C[1] ({ref_px:.2f})",
@@ -617,7 +617,7 @@ class MicroRangeExpansionPattern(BasePattern):
                             phenomenon=self.phenomenon,
                             event_id=event_id,
                             price=trig_px,
-                            timestamp_ms=int(c0.timestamp.timestamp() * 1000),
+                            timestamp_ms=buffer.current_time_ms,
                             reasons=[
                                 f"Ekspansi Rentang Bar M5: Rentang {c0.range:.2f} pts (> 1.4x avg {avg_r:.2f} pts)",
                                 f"Dorongan bullish solid dari {ref_px:.2f} menuju {trig_px:.2f}",
@@ -641,7 +641,7 @@ class MicroRangeExpansionPattern(BasePattern):
                             phenomenon=self.phenomenon,
                             event_id=event_id,
                             price=trig_px,
-                            timestamp_ms=int(c0.timestamp.timestamp() * 1000),
+                            timestamp_ms=buffer.current_time_ms,
                             reasons=[
                                 f"Ekspansi Rentang Bar M5: Rentang {c0.range:.2f} pts (> 1.4x avg {avg_r:.2f} pts)",
                                 f"Dorongan bearish solid dari {ref_px:.2f} menuju {trig_px:.2f}",
@@ -752,7 +752,7 @@ class MicroRangeCompressionPattern(BasePattern):
                             phenomenon=self.phenomenon,
                             event_id=event_id,
                             price=trig_px,
-                            timestamp_ms=int(c0.timestamp.timestamp() * 1000),
+                            timestamp_ms=buffer.current_time_ms,
                             reasons=[
                                 f"Kompresi Bar M5 3 Bar: Rentang konsolidasi ketat {span_comp:.2f} pts",
                                 f"Terobosan Bullish C[0] ({trig_px:.2f}) menembus batas kompresi ({ref_px:.2f})",
@@ -776,7 +776,7 @@ class MicroRangeCompressionPattern(BasePattern):
                             phenomenon=self.phenomenon,
                             event_id=event_id,
                             price=trig_px,
-                            timestamp_ms=int(c0.timestamp.timestamp() * 1000),
+                            timestamp_ms=buffer.current_time_ms,
                             reasons=[
                                 f"Kompresi Bar M5 3 Bar: Rentang konsolidasi ketat {span_comp:.2f} pts",
                                 f"Terobosan Bearish C[0] ({trig_px:.2f}) menembus batas kompresi ({ref_px:.2f})",
@@ -861,7 +861,7 @@ class VolatilityBurstPattern(BasePattern):
                             phenomenon=self.phenomenon,
                             event_id=event_id,
                             price=trig_px,
-                            timestamp_ms=int(c0.timestamp.timestamp() * 1000),
+                            timestamp_ms=buffer.current_time_ms,
                             reasons=[
                                 f"Ledakan Volatilitas M5 Bullish: Range {c0.range:.2f} pts (> 1.5x avg {avg_r:.2f} pts)",
                                 f"Volume {c0.tick_volume:.0f} (> 1.5x avg {avg_v:.0f}) mengonfirmasi dorongan kuat",
@@ -885,7 +885,7 @@ class VolatilityBurstPattern(BasePattern):
                             phenomenon=self.phenomenon,
                             event_id=event_id,
                             price=trig_px,
-                            timestamp_ms=int(c0.timestamp.timestamp() * 1000),
+                            timestamp_ms=buffer.current_time_ms,
                             reasons=[
                                 f"Ledakan Volatilitas M5 Bearish: Range {c0.range:.2f} pts (> 1.5x avg {avg_r:.2f} pts)",
                                 f"Volume {c0.tick_volume:.0f} (> 1.5x avg {avg_v:.0f}) mengonfirmasi dorongan kuat",
@@ -994,7 +994,7 @@ class RejectionPattern(BasePattern):
                         phenomenon=self.phenomenon,
                         event_id=event_id,
                         price=trig_px,
-                        timestamp_ms=int(c0.timestamp.timestamp() * 1000),
+                        timestamp_ms=buffer.current_time_ms,
                         reasons=[
                             f"Penolakan Bawah M5 (Lower Rejection): Ekor bawah {c0.lower_wick:.2f} pts (> 50% range)",
                             "Tekanan pantulan kuat muncul di dasar candle M5",
@@ -1017,7 +1017,7 @@ class RejectionPattern(BasePattern):
                         phenomenon=self.phenomenon,
                         event_id=event_id,
                         price=trig_px,
-                        timestamp_ms=int(c0.timestamp.timestamp() * 1000),
+                        timestamp_ms=buffer.current_time_ms,
                         reasons=[
                             f"Penolakan Atas M5 (Upper Rejection): Ekor atas {c0.upper_wick:.2f} pts (> 50% range)",
                             "Tekanan penolakan kuat muncul di pucuk candle M5",
@@ -1053,7 +1053,7 @@ class GapPattern(BasePattern):
 
             gap = c0.open - c1.close
             tick = buffer.latest_tick
-            ts = tick.ts_ms if tick else int(c0.timestamp.timestamp() * 1000)
+            ts = tick.ts_ms if tick else buffer.current_time_ms
             
             # Gap up >= 0.40 pts
             if gap >= 0.40:
@@ -1207,7 +1207,7 @@ class FailedMomentumPattern(BasePattern):
                         phenomenon=self.phenomenon,
                         event_id=event_id,
                         price=trig_px,
-                        timestamp_ms=int(c0.timestamp.timestamp() * 1000),
+                        timestamp_ms=buffer.current_time_ms,
                         reasons=[
                             f"Momentum Naik M5 Gagal Total: Bar bullish {c1.body:.2f} pts di-reversal 100% oleh bar bearish {c0.body:.2f} pts",
                             f"Penutupan {trig_px:.2f} menembus kembali di bawah open C[1] ({c1.open:.2f})",
@@ -1231,7 +1231,7 @@ class FailedMomentumPattern(BasePattern):
                         phenomenon=self.phenomenon,
                         event_id=event_id,
                         price=trig_px,
-                        timestamp_ms=int(c0.timestamp.timestamp() * 1000),
+                        timestamp_ms=buffer.current_time_ms,
                         reasons=[
                             f"Momentum Turun M5 Gagal Total: Bar bearish {c1.body:.2f} pts di-reversal 100% oleh bar bullish {c0.body:.2f} pts",
                             f"Penutupan {trig_px:.2f} menembus kembali di atas open C[1] ({c1.open:.2f})",
@@ -1339,7 +1339,7 @@ class MomentumExhaustionPattern(BasePattern):
                             phenomenon=self.phenomenon,
                             event_id=event_id,
                             price=trig_px,
-                            timestamp_ms=int(c0.timestamp.timestamp() * 1000),
+                            timestamp_ms=buffer.current_time_ms,
                             reasons=[
                                 f"Kehabisan Tenaga Buyer (Bull Exhaustion) M5: Reli besar {c1.range:.2f} pts gagal berlanjut",
                                 f"Bar C[0] terhenti (body kecil/ekor atas panjang) dan terdorong turun ke {trig_px:.2f}",
@@ -1364,7 +1364,7 @@ class MomentumExhaustionPattern(BasePattern):
                             phenomenon=self.phenomenon,
                             event_id=event_id,
                             price=trig_px,
-                            timestamp_ms=int(c0.timestamp.timestamp() * 1000),
+                            timestamp_ms=buffer.current_time_ms,
                             reasons=[
                                 f"Kehabisan Tenaga Seller (Bear Exhaustion) M5: Penurunan besar {c1.range:.2f} pts gagal berlanjut",
                                 f"Bar C[0] terhenti (body kecil/ekor bawah panjang) dan terdorong naik ke {trig_px:.2f}",
@@ -1447,7 +1447,7 @@ class VReversalPattern(BasePattern):
                         phenomenon=self.phenomenon,
                         event_id=event_id,
                         price=trig_px,
-                        timestamp_ms=int(c0.timestamp.timestamp() * 1000),
+                        timestamp_ms=buffer.current_time_ms,
                         reasons=[
                             f"V-Reversal M5: Bar penurunan {c1.body:.2f} pts langsung dibalas rebound kuat {c0.body:.2f} pts",
                             f"Pemulihan harga merebut kembali level {trig_px:.2f}",
@@ -1528,7 +1528,7 @@ class InvertedVReversalPattern(BasePattern):
                         phenomenon=self.phenomenon,
                         event_id=event_id,
                         price=trig_px,
-                        timestamp_ms=int(c0.timestamp.timestamp() * 1000),
+                        timestamp_ms=buffer.current_time_ms,
                         reasons=[
                             f"Inverted V-Reversal M5: Bar reli {c1.body:.2f} pts langsung dibalas kejatuhan kuat {c0.body:.2f} pts",
                             f"Penurunan harga menembus kembali level {trig_px:.2f}",
@@ -1635,7 +1635,7 @@ class HybridTickCandlePattern(BasePattern):
                         phenomenon=self.phenomenon,
                         event_id=event_id,
                         price=round(c0.close, 2),
-                        timestamp_ms=int(c0.timestamp.timestamp() * 1000),
+                        timestamp_ms=buffer.current_time_ms,
                         reasons=[
                             f"Sinergi M5: Pin bar penolakan bawah ({c1.lower_wick:.2f} pts)",
                             f"Dikonfirmasi follow-through candle bullish M5 ({c0.close:.2f})",
@@ -1655,7 +1655,7 @@ class HybridTickCandlePattern(BasePattern):
                         phenomenon=self.phenomenon,
                         event_id=event_id,
                         price=round(c0.close, 2),
-                        timestamp_ms=int(c0.timestamp.timestamp() * 1000),
+                        timestamp_ms=buffer.current_time_ms,
                         reasons=[
                             f"Sinergi M5: Pin bar penolakan atas ({c1.upper_wick:.2f} pts)",
                             f"Dikonfirmasi follow-through candle bearish M5 ({c0.close:.2f})",

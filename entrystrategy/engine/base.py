@@ -49,10 +49,18 @@ class BasePattern(ABC):
         return bool(self.last_candle_ts == candle_ts and self.last_direction == direction)
 
     def check(self, buffer: MarketBuffer) -> Optional[EntrySignal]:
-        """Wrapper around evaluate that enforces event-based deduplication and cooldown."""
+        """Wrapper around evaluate that enforces event-based deduplication, detection timestamp freshness, and execution price."""
         sig = self.evaluate(buffer)
         if not sig or sig.direction == SignalDirection.NONE:
             return None
+
+        # P0 Fix: Ensure timestamp_ms represents detection time, not candle open time
+        now_wall_ms = buffer.current_time_ms
+        if sig.timestamp_ms < (now_wall_ms - 10_000):
+            sig.timestamp_ms = now_wall_ms
+
+        # P0 Fix: Ensure execution_price accounts for Bid/Ask spread
+        sig.execution_price = buffer.get_execution_price(sig.direction, sig.trigger_price)
 
         now_ms = sig.timestamp_ms
 

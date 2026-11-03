@@ -1,7 +1,8 @@
 """Sliding Window Buffers for Ticks and Candles supporting M1 and M5 timeframes."""
 from collections import deque
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Any
 import threading
+import time
 from entrystrategy.core.models import TickData, Candle
 
 
@@ -25,6 +26,7 @@ class MarketBuffer:
         self._candles_m5: deque = deque(maxlen=candle_capacity)
         self._candles: deque = deque(maxlen=candle_capacity)
         self._current_bar: Optional[Candle] = None
+        self._current_time_ms: Optional[int] = None
         
         self._lock = threading.Lock()
 
@@ -104,9 +106,27 @@ class MarketBuffer:
                 return self._candles[-1].spread or 0.25
             return 0.25
 
+    def set_current_time_ms(self, ts_ms: Optional[int]):
+        """Sets an explicit simulation/backtest timestamp (or None for wall clock / tick time)."""
+        with self._lock:
+            self._current_time_ms = ts_ms
+
+    @property
+    def current_time_ms(self) -> int:
+        """Returns current detection time: explicit sim time, latest tick, or wall-clock ms."""
+        with self._lock:
+            if self._current_time_ms is not None:
+                return self._current_time_ms
+            if self.enable_ticks and self._ticks:
+                return self._ticks[-1].ts_ms
+            return int(time.time() * 1000)
+
     def get_execution_price(self, direction: Any, ref_close: float) -> float:
         """Calculates estimated execution price: Ask for BUY, Bid for SELL.
-        In candle-only mode (where Dukascopy bars are Bid), BUY = ref_close + spread, SELL = ref_close.
+        Since Dukascopy candle bars are Bid-side:
+        - In candle-only mode (or whenever ref_close is a candle price):
+          BUY = ref_close + spread (Ask), SELL = ref_close (Bid).
+        - In tick mode with live streaming ticks, uses live ask/bid quotes.
         """
         dir_upper = str(direction).upper()
         is_buy = "BUY" in dir_upper

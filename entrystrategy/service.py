@@ -95,9 +95,11 @@ class EntryStrategyService:
             self._evaluate_patterns()
 
     def _on_bar_completed(self, candle: Candle, is_history: bool = False):
-        self.latest_price = candle.close
+        candle_tf = (candle.timeframe or "").upper()
         self.buffer.add_completed_candle(candle)
-        if not is_history:
+        # P1 Fix: Only trigger pattern evaluation when incoming candle matches active timeframe!
+        if not is_history and (candle_tf == self.active_timeframe.upper()):
+            self.latest_price = candle.close
             self._evaluate_patterns()
 
     def _on_sim_tick(self, tick: TickData):
@@ -110,8 +112,11 @@ class EntryStrategyService:
 
     def _on_sim_bar(self, candle: Candle):
         if not self.feed_connected:
+            candle_tf = (candle.timeframe or "").upper()
             self.buffer.add_completed_candle(candle)
-            self._evaluate_patterns()
+            if candle_tf == self.active_timeframe.upper():
+                self.latest_price = candle.close
+                self._evaluate_patterns()
 
     def _on_feed_status_changed(self, connected: bool, message: str, details: Optional[Dict[str, Any]] = None):
         self.feed_connected = connected
@@ -139,6 +144,9 @@ class EntryStrategyService:
         if fired:
             with self._lock:
                 for sig in fired:
+                    # P0 Fix: Ensure execution price accounts for spread (Ask for BUY, Bid for SELL)
+                    if sig.execution_price is None or sig.execution_price == sig.trigger_price:
+                        sig.execution_price = self.buffer.get_execution_price(sig.direction, sig.trigger_price)
                     self.recent_signals.appendleft(sig)
                     self.latest_signals_by_pattern[sig.pattern_id] = sig
                     if sig.direction == SignalDirection.BUY:

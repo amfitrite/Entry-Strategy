@@ -254,9 +254,9 @@ class DukascopyFeed:
                     elif not self.is_connected:
                         self._notify_status(True, "DUKASCOPY LIVE (Awaiting New Ticks)")
 
-                # Check official candle closure every ~15 seconds or on candle intervals
+                # Check official candle closure every ~3 seconds or on candle intervals (low latency)
                 candle_sync_counter += 1
-                if candle_sync_counter >= 15:
+                if candle_sync_counter >= 3:
                     candle_sync_counter = 0
                     self._sync_latest_candle(now)
 
@@ -271,16 +271,31 @@ class DukascopyFeed:
             time.sleep(sleep_time)
 
     def _sync_latest_candle(self, now: datetime):
-        """Checks for official closed candle on Dukascopy and dispatches it if fresh with isolated cursors."""
+        """Checks for official closed candles on Dukascopy and dispatches all missing closed bars sequentially."""
         try:
             for tf in ("M5", "M1"):
                 interval_min = 5 if tf == "M5" else 1
+                prev_ts = self.last_candle_timestamp.get(tf)
+                
+                # P1 Fix: Search window begins from previous cursor backward, covering connection drops
+                if prev_ts is not None:
+                    fetch_start = max(
+                        prev_ts - timedelta(minutes=interval_min),
+                        now - timedelta(minutes=interval_min * 60)
+                    )
+                else:
+                    fetch_start = now - timedelta(minutes=interval_min * 10)
+
+                # Ensure start is strictly before end
+                if (now - fetch_start).total_seconds() < (interval_min * 60):
+                    fetch_start = now - timedelta(minutes=interval_min * 2)
+
                 recent = list(duka.fetch_candles(
                     instrument=I_XAU_USD,
                     interval=interval_min,
                     time_unit=duka.TimeUnit.MINUTE,
                     offer_side=duka.OfferSide.BID,
-                    start=now - timedelta(minutes=interval_min * 4),
+                    start=fetch_start,
                     end=now
                 ))
                 if recent:
@@ -290,27 +305,29 @@ class DukascopyFeed:
                         c for c in recent
                         if (c.timestamp + timedelta(minutes=interval_min)) <= now
                     ]
-                    if closed_candidates:
-                        latest_closed = closed_candidates[-1]
-                        prev_ts = self.last_candle_timestamp.get(tf)
-                        if prev_ts is None or latest_closed.timestamp > prev_ts:
-                            c_obj = Candle(
-                                timestamp=latest_closed.timestamp,
-                                open=float(latest_closed.open),
-                                high=float(latest_closed.high),
-                                low=float(latest_closed.low),
-                                close=float(latest_closed.close),
-                                tick_volume=float(latest_closed.volume),
-                                symbol=self.symbol,
-                                timeframe=tf,
-                                is_closed=True
-                            )
-                            with self._lock:
-                                self.last_candle_timestamp[tf] = latest_closed.timestamp
-                                if tf == self.timeframe:
-                                    self.last_price = float(latest_closed.close)
-                            self.total_candles_received += 1
-                            if self.on_bar_completed:
-                                self.on_bar_completed(c_obj, False)
+                    # P1 Fix: Dispatch ALL candles that arrived or were missed after prev_ts in chronological order
+                    new_candles = [
+                        c for c in closed_candidates
+                        if prev_ts is None or c.timestamp > prev_ts
+                    ]
+                    for bar in new_candles:
+                        c_obj = Candle(
+                            timestamp=bar.timestamp,
+                            open=float(bar.open),
+                            high=float(bar.high),
+                            low=float(bar.low),
+                            close=float(bar.close),
+                            tick_volume=float(bar.volume),
+                            symbol=self.symbol,
+                            timeframe=tf,
+                            is_closed=True
+                        )
+                        with self._lock:
+                            self.last_candle_timestamp[tf] = bar.timestamp
+                            if tf == self.timeframe:
+                                self.last_price = float(bar.close)
+                        self.total_candles_received += 1
+                        if self.on_bar_completed:
+                            self.on_bar_completed(c_obj, False)
         except Exception as e:
             logger.debug(f"Candle sync check notice: {e}")
