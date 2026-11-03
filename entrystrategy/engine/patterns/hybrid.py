@@ -1,7 +1,7 @@
-"""Hybrid Tick-Candle Entry Patterns (Pola 7-10, 18-20, 24, 28-30, 36-37, 40)."""
+"""Candle-only hybrid and price-action entry families for M1/M5."""
 from typing import Optional, List
 from entrystrategy.engine.base import BasePattern
-from entrystrategy.core.models import EntrySignal, SignalDirection, PatternRole, Candle, TickData
+from entrystrategy.core.models import EntrySignal, SignalDirection, PatternRole, Candle
 from entrystrategy.core.buffer import MarketBuffer
 
 
@@ -14,14 +14,13 @@ class BreakoutPattern(BasePattern):
             pattern_id=7,
             name="Breakout",
             category="Hybrid",
-            description="Penembusan High atau Low candle sebelumnya dengan konfirmasi laju tick.",
+            description="Penutupan candle menembus High atau Low candle sebelumnya.",
             role=PatternRole.ENTRY,
             phenomenon="Penembusan batas High/Low candle sebelumnya oleh harga saat ini",
             cooldown_ms=3000,
         )
 
     def evaluate(self, buffer: MarketBuffer) -> Optional[EntrySignal]:
-        # Evaluate only completed OHLC candles for the active timeframe.
         candles = buffer.get_recent_candles(2)
         # M5 / M1 Candle-based evaluation
         if len(candles) >= 2:
@@ -387,7 +386,7 @@ class MicroRangeCompressionPattern(BasePattern):
             category="Hybrid",
             description="Penyempitan rentang harga historis sebelum terjadinya terobosan arah.",
             role=PatternRole.SETUP_TRIGGER,
-            phenomenon="Penyempitan volatilitas mikro (kompresi) yang ditembus oleh tick terobosan",
+            phenomenon="Kompresi range beberapa candle yang diikuti close candle keluar dari batas range",
             cooldown_ms=3000,
         )
 
@@ -456,79 +455,80 @@ class MicroRangeCompressionPattern(BasePattern):
 
 
 class VolatilityBurstPattern(BasePattern):
-    """Pola 20: Volatility Burst.
-    Kombinasi serentak lonjakan frekuensi tick dan pergeseran rentang harga.
+    """Pola 20: OHLC Volatility Expansion.
+    Candle range expands sharply versus prior bars and closes near its directional extreme.
     """
     def __init__(self):
         super().__init__(
             pattern_id=20,
             name="Volatility Burst",
             category="Hybrid",
-            description="Kombinasi serentak lonjakan frekuensi tick dan lonjakan rentang harga.",
+            description="Ekspansi range candle disertai body dominan dan close dekat ekstrem arah.",
             role=PatternRole.ENTRY,
-            phenomenon="Kombinasi serentak lonjakan frekuensi kedatangan tick dan perpindahan rentang harga",
+            phenomenon="Ekspansi volatilitas terukur melalui OHLC candle dibandingkan range sebelumnya",
             cooldown_ms=3000,
         )
 
     def evaluate(self, buffer: MarketBuffer) -> Optional[EntrySignal]:
-        # Evaluate only completed OHLC candles for the active timeframe.
         candles = buffer.get_recent_candles(5)
-        # M5 / M1 Candle-based evaluation
-        candles = buffer.get_recent_candles(5)
-        if len(candles) >= 4:
-            c0 = candles[0]
-            prior = candles[1:4]
-            avg_r = sum(c.range for c in prior) / len(prior)
-            avg_v = sum((c.tick_volume or 1.0) for c in prior) / len(prior)
-            if avg_r > 0 and c0.range >= (1.5 * avg_r) and (c0.tick_volume or 1.0) >= (1.5 * avg_v):
-                if c0.is_bullish:
-                    ref_px = round(c0.open, 2)
-                    trig_px = round(c0.close, 2)
-                    inval_px = round(c0.low, 2)
-                    event_id = f"m5_vol_burst_buy_{int(c0.timestamp.timestamp())}"
-                    if not self._is_event_deduplicated(event_id):
-                        return EntrySignal(
-                            pattern_id=self.pattern_id,
-                            family_name=self.name,
-                            direction=SignalDirection.BUY,
-                            reference_price=ref_px,
-                            trigger_price=trig_px,
-                            invalidation_price=inval_px,
-                            pattern_role=self.role,
-                            phenomenon=self.phenomenon,
-                            event_id=event_id,
-                            price=trig_px,
-                            timestamp_ms=buffer.current_time_ms,
-                            reasons=[
-                                f"Ledakan Volatilitas M5 Bullish: Range {c0.range:.2f} pts (> 1.5x avg {avg_r:.2f} pts)",
-                                f"Volume {c0.tick_volume:.0f} (> 1.5x avg {avg_v:.0f}) mengonfirmasi dorongan kuat",
-                            ],
-                            metrics={"range": round(c0.range, 2), "volume": c0.tick_volume},
-                        )
-                elif c0.is_bearish:
-                    ref_px = round(c0.open, 2)
-                    trig_px = round(c0.close, 2)
-                    inval_px = round(c0.high, 2)
-                    event_id = f"m5_vol_burst_sell_{int(c0.timestamp.timestamp())}"
-                    if not self._is_event_deduplicated(event_id):
-                        return EntrySignal(
-                            pattern_id=self.pattern_id,
-                            family_name=self.name,
-                            direction=SignalDirection.SELL,
-                            reference_price=ref_px,
-                            trigger_price=trig_px,
-                            invalidation_price=inval_px,
-                            pattern_role=self.role,
-                            phenomenon=self.phenomenon,
-                            event_id=event_id,
-                            price=trig_px,
-                            timestamp_ms=buffer.current_time_ms,
-                            reasons=[
-                                f"Ledakan Volatilitas M5 Bearish: Range {c0.range:.2f} pts (> 1.5x avg {avg_r:.2f} pts)",
-                                f"Volume {c0.tick_volume:.0f} (> 1.5x avg {avg_v:.0f}) mengonfirmasi dorongan kuat",
-                            ],
-                            metrics={"range": round(c0.range, 2), "volume": c0.tick_volume},
-                        )
+        if len(candles) < 4:
+            return None
+        c0 = candles[0]
+        prior = candles[1:4]
+        avg_r = sum(c.range for c in prior) / len(prior)
+        if avg_r <= 0 or c0.range < 1.5 * avg_r or c0.body < 0.65 * c0.range:
+            return None
+
+        body_ratio = c0.body / c0.range
+        close_position = (c0.close - c0.low) / c0.range
+        if c0.is_bullish and close_position >= 0.80:
+            ref_px = round(c0.open, 2)
+            trig_px = round(c0.close, 2)
+            inval_px = round(c0.low, 2)
+            event_id = f"ohlc_volatility_burst_buy_{int(c0.timestamp.timestamp())}"
+            if not self._is_event_deduplicated(event_id):
+                return EntrySignal(
+                    pattern_id=self.pattern_id,
+                    family_name=self.name,
+                    direction=SignalDirection.BUY,
+                    reference_price=ref_px,
+                    trigger_price=trig_px,
+                    invalidation_price=inval_px,
+                    pattern_role=self.role,
+                    phenomenon=self.phenomenon,
+                    event_id=event_id,
+                    price=trig_px,
+                    timestamp_ms=buffer.current_time_ms,
+                    reasons=[
+                        f"Range candle {c0.range:.2f} pts >= 1.5x rata-rata {avg_r:.2f} pts",
+                        f"Body dominan {body_ratio:.0%}; close berada di 20% teratas range candle",
+                    ],
+                    metrics={"range": round(c0.range, 2), "avg_range": round(avg_r, 2), "body_ratio": round(body_ratio, 3), "close_position": round(close_position, 3)},
+                )
+        if c0.is_bearish and close_position <= 0.20:
+            ref_px = round(c0.open, 2)
+            trig_px = round(c0.close, 2)
+            inval_px = round(c0.high, 2)
+            event_id = f"ohlc_volatility_burst_sell_{int(c0.timestamp.timestamp())}"
+            if not self._is_event_deduplicated(event_id):
+                return EntrySignal(
+                    pattern_id=self.pattern_id,
+                    family_name=self.name,
+                    direction=SignalDirection.SELL,
+                    reference_price=ref_px,
+                    trigger_price=trig_px,
+                    invalidation_price=inval_px,
+                    pattern_role=self.role,
+                    phenomenon=self.phenomenon,
+                    event_id=event_id,
+                    price=trig_px,
+                    timestamp_ms=buffer.current_time_ms,
+                    reasons=[
+                        f"Range candle {c0.range:.2f} pts >= 1.5x rata-rata {avg_r:.2f} pts",
+                        f"Body dominan {body_ratio:.0%}; close berada di 20% terbawah range candle",
+                    ],
+                    metrics={"range": round(c0.range, 2), "avg_range": round(avg_r, 2), "body_ratio": round(body_ratio, 3), "close_position": round(close_position, 3)},
+                )
         return None
 
 
