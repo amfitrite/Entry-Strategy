@@ -102,7 +102,8 @@ def test_pola_13_candle_displacement_buy():
         create_mock_candle(now - timedelta(minutes=4), 2745.0, 2746.0, 2744.5, 2745.5),
         create_mock_candle(now - timedelta(minutes=3), 2745.5, 2746.1, 2745.0, 2745.8),
         create_mock_candle(now - timedelta(minutes=2), 2745.8, 2746.2, 2745.1, 2745.9),
-        create_mock_candle(now - timedelta(minutes=1), 2745.8, 2749.0, 2745.6, 2748.7),
+        create_mock_candle(now - timedelta(minutes=1), 2745.7, 2746.1, 2745.2, 2745.8),
+        create_mock_candle(now, 2745.8, 2749.0, 2745.6, 2748.7),
     ]
     for candle in candles:
         buf.add_completed_candle(candle)
