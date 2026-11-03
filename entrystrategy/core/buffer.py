@@ -13,13 +13,13 @@ class MarketBuffer:
         tick_capacity: int = 2000,
         candle_capacity: int = 300,
         default_timeframe: str = "M5",
-        enable_ticks: bool = True,
+        enable_ticks: bool = False,
         active_timeframe: Optional[str] = None,
     ):
         self._tick_capacity = tick_capacity
         self._candle_capacity = candle_capacity
         self.active_timeframe: str = (active_timeframe or default_timeframe).upper()
-        self.enable_ticks: bool = enable_ticks
+        self.enable_ticks: bool = False
         
         self._ticks: deque = deque(maxlen=tick_capacity)
         self._candles_m1: deque = deque(maxlen=candle_capacity)
@@ -38,8 +38,9 @@ class MarketBuffer:
             self._candles = deque(source, maxlen=self._candle_capacity)
 
     def set_enable_ticks(self, enable: bool):
+        """Deprecated compatibility shim: strategy analysis is always candle-only."""
         with self._lock:
-            self.enable_ticks = bool(enable)
+            self.enable_ticks = False
 
     def add_tick(self, tick: TickData):
         with self._lock:
@@ -66,11 +67,8 @@ class MarketBuffer:
             return self._current_bar
 
     def get_recent_ticks(self, count: int = 50) -> List[TickData]:
-        if not self.enable_ticks:
-            return []
-        with self._lock:
-            n = min(len(self._ticks), count)
-            return [self._ticks[-i] for i in range(n, 0, -1)]
+        """Strategy-facing tick access is disabled; ticks are quote telemetry only."""
+        return []
 
     def get_recent_candles(self, count: int = 20, timeframe: Optional[str] = None) -> List[Candle]:
         """Returns candles with index 0 being the latest completed candle, index 1 being 1 bar ago, etc.
@@ -84,11 +82,8 @@ class MarketBuffer:
 
     @property
     def latest_tick(self) -> Optional[TickData]:
-        """Returns the latest tick for pattern evaluations ONLY when tick mode is enabled."""
-        if not self.enable_ticks:
-            return None
-        with self._lock:
-            return self._ticks[-1] if self._ticks else None
+        """Always None: strategy predicates are exclusively completed-candle based."""
+        return None
 
     @property
     def latest_quote_tick(self) -> Optional[TickData]:
@@ -98,9 +93,10 @@ class MarketBuffer:
 
     @property
     def current_spread(self) -> float:
-        """Returns current market spread in points."""
+        """Returns fresh quote spread, or the latest candle spread when quotes are stale."""
+        now_ms = self.current_time_ms
         with self._lock:
-            if self._ticks:
+            if self._ticks and abs(now_ms - self._ticks[-1].ts_ms) <= 5000:
                 return self._ticks[-1].spread
             if self._candles:
                 return self._candles[-1].spread or 0.25
@@ -113,13 +109,11 @@ class MarketBuffer:
 
     @property
     def current_time_ms(self) -> int:
-        """Returns current detection time: explicit sim time, latest tick, or wall-clock ms."""
+        """Returns explicit simulation time or wall-clock detection time; never strategy tick time."""
         with self._lock:
             if self._current_time_ms is not None:
                 return self._current_time_ms
-            if self.enable_ticks and self._ticks:
-                return self._ticks[-1].ts_ms
-            return int(time.time() * 1000)
+        return int(time.time() * 1000)
 
     def get_execution_price(self, direction: Any, ref_close: float) -> float:
         """Calculates estimated execution price: Ask for BUY, Bid for SELL.
@@ -130,8 +124,8 @@ class MarketBuffer:
         """
         dir_upper = str(direction).upper()
         is_buy = "BUY" in dir_upper
-        if self.enable_ticks and self._ticks:
-            t = self._ticks[-1]
+        t = self.latest_quote_tick
+        if t is not None and abs(self.current_time_ms - t.ts_ms) <= 5000:
             return round(t.ask if is_buy else t.bid, 2)
         spread = self.current_spread
         if is_buy:
