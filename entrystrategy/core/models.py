@@ -118,6 +118,16 @@ class EntrySignal:
     invalidated_time_ms: Optional[int] = None
     expired_time_ms: Optional[int] = None
 
+    # --- Technical Tier Grading Fields ---
+    grade: Optional[str] = None
+    grade_score: Optional[float] = None
+    grade_confidence: Optional[float] = None
+    grade_timeframe: Optional[str] = None
+    grade_version: Optional[str] = None
+    grade_breakdown: Optional[Dict[str, float]] = None
+    grade_reasons: List[str] = field(default_factory=list)
+    grade_penalties: List[str] = field(default_factory=list)
+
     def __post_init__(self):
         if self.execution_price is None:
             self.execution_price = self.trigger_price
@@ -243,6 +253,14 @@ class EntrySignal:
             "invalidated_price": round(self.invalidated_price, 2) if self.invalidated_price is not None else None,
             "invalidated_time_ms": self.invalidated_time_ms,
             "expired_time_ms": self.expired_time_ms,
+            "grade": self.grade,
+            "grade_score": round(self.grade_score, 2) if self.grade_score is not None else None,
+            "grade_confidence": round(self.grade_confidence, 2) if self.grade_confidence is not None else None,
+            "grade_timeframe": self.grade_timeframe,
+            "grade_version": self.grade_version,
+            "grade_breakdown": self.grade_breakdown or {},
+            "grade_reasons": self.grade_reasons,
+            "grade_penalties": self.grade_penalties,
         }
 
     @classmethod
@@ -290,4 +308,12 @@ class EntrySignal:
             invalidated_price=float(data["invalidated_price"]) if data.get("invalidated_price") is not None else None,
             invalidated_time_ms=data.get("invalidated_time_ms"),
             expired_time_ms=data.get("expired_time_ms"),
+            grade=data.get("grade"),
+            grade_score=float(data["grade_score"]) if data.get("grade_score") is not None else None,
+            grade_confidence=float(data["grade_confidence"]) if data.get("grade_confidence") is not None else None,
+            grade_timeframe=data.get("grade_timeframe"),
+            grade_version=data.get("grade_version"),
+            grade_breakdown=dict(data["grade_breakdown"]) if data.get("grade_breakdown") else None,
+            grade_reasons=list(data.get("grade_reasons", [])),
+            grade_penalties=list(data.get("grade_penalties", [])),
         )

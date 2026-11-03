@@ -60,7 +60,8 @@ class EntryStrategyService:
             default_timeframe=self.active_timeframe,
         )
         self.buffer.set_enable_ticks(False)
-        self.registry = PatternRegistry()
+        inc_vol = getattr(self.config, "enable_volume_strategies", False)
+        self.registry = PatternRegistry(include_volume_strategies=inc_vol)
         
         self.recent_signals: deque = deque(maxlen=100)
         self.latest_signals_by_pattern: Dict[int, EntrySignal] = {}
@@ -355,6 +356,9 @@ class EntryStrategyService:
                     "direction": dir_val,
                     "time_ago": time_ago_str,
                     "price_str": px_str,
+                    "grade": last_sig.grade if last_sig else None,
+                    "grade_score": last_sig.grade_score if last_sig else None,
+                    "grade_timeframe": last_sig.grade_timeframe if last_sig else None,
                     "last_signal": last_sig.to_dict() if last_sig else None,
                 })
 
@@ -441,6 +445,8 @@ class EntryStrategyService:
             ],
             metrics={"test_mode": True},
         )
+        # Grade manual test signal dynamically
+        self.registry.grading_engine.grade_signal(sig, self.buffer, self.active_timeframe)
         with self._lock:
             self.recent_signals.appendleft(sig)
             self.latest_signals_by_pattern[pattern_id] = sig
