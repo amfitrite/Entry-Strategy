@@ -161,3 +161,26 @@ def test_ui_template_tier_icons_and_apex_sorting():
     assert "⏱" in html, "⏱ Expired icon missing"
 
 
+def test_gui_window_geometry_sanitization():
+    """Verify that off-screen minimized coordinates (-32000) are never captured or loaded."""
+    config = AppConfig(enable_simulation=False)
+    service = EntryStrategyService(config, start_servers=False)
+    api = MatrixWindowAPI(service)
+
+    # 1. Mock window with minimized coordinates
+    mock_win = MockWebviewWindow()
+    mock_win.x = -32000
+    mock_win.y = -32000
+    mock_win.width = 160
+    mock_win.height = 30
+    api.set_window(mock_win)
+
+    # 2. Query geometry: should NOT return negative off-screen coordinates
+    geom = api._collect_window_geometry()
+    assert geom.get("x") != -32000
+    assert geom.get("y") != -32000
+
+    service.stop()
+
+
+
