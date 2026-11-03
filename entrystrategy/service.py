@@ -199,7 +199,7 @@ class EntryStrategyService:
             self._update_all_lifecycles(self.latest_price, now_ms, self.latest_spread)
 
             patterns = self.registry.get_matrix_status()
-            recent_sigs = [s.to_dict() for s in list(self.recent_signals)[:20]]
+            recent_sigs = [s.to_dict() for s in list(self.recent_signals)[:100]]
             
             # Format patterns with formal lifecycle state machine
             pattern_cards = []

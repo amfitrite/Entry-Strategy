@@ -846,7 +846,201 @@
     }
 
     .btn-close-modal:hover { background: #373c49; }
-  </style>
+  
+    /* --- Dual-View Navigation & History Journal --- */
+    .view-tabs {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      background: #101216;
+      padding: 3px;
+      border-radius: 8px;
+      border: 1px solid #232732;
+    }
+    .view-tab {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      user-select: none;
+    }
+    .view-tab:hover {
+      color: #f1f5f9;
+      background: #1a1e27;
+    }
+    .view-tab.active {
+      background: #232936;
+      color: #fff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+    .tab-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 17px;
+      height: 17px;
+      padding: 0 5px;
+      border-radius: 9px;
+      font-size: 9.5px;
+      font-weight: 800;
+      background: #0ea5e9;
+      color: #fff;
+    }
+    .tab-badge.badge-active-signals {
+      background: #10b981;
+      animation: badgePulse 2s infinite;
+    }
+    @keyframes badgePulse {
+      0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+      50% { transform: scale(1.08); box-shadow: 0 0 0 4px rgba(16, 185, 129, 0); }
+    }
+    .tab-badge.badge-neutral {
+      background: #282f3d;
+      color: #94a3b8;
+    }
+
+    /* History KPI Summary Strip */
+    .history-summary-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      padding: 10px 16px;
+      background: #13161c;
+      border-bottom: 1px solid #232732;
+    }
+    .kpi-card {
+      background: #171a22;
+      border: 1px solid #262b37;
+      border-radius: 8px;
+      padding: 8px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .kpi-label {
+      font-size: 9.5px;
+      font-weight: 800;
+      color: #64748b;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .kpi-val {
+      font-size: 15px;
+      font-weight: 800;
+      color: #f8fafc;
+      font-family: 'Consolas', 'SF Mono', monospace;
+    }
+    .kpi-card.kpi-confirmed .kpi-val { color: #10b981; }
+    .kpi-card.kpi-invalidated .kpi-val { color: #ef4444; }
+    .kpi-card.kpi-expired .kpi-val { color: #94a3b8; }
+
+    /* History Table */
+    .history-table-wrapper {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 16px 16px 16px;
+      position: relative;
+    }
+    .history-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11.5px;
+      margin-top: 8px;
+      text-align: left;
+    }
+    .history-table thead th {
+      position: sticky;
+      top: 0;
+      background: #151820;
+      color: #94a3b8;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      padding: 8px 10px;
+      border-bottom: 2px solid #282d3b;
+      z-index: 2;
+    }
+    .history-table tbody tr {
+      border-bottom: 1px solid #1c202a;
+      transition: background 0.12s ease;
+      cursor: pointer;
+    }
+    .history-table tbody tr:hover {
+      background: #1c212c;
+    }
+    .history-table td {
+      padding: 7px 10px;
+      color: #cbd5e1;
+      vertical-align: middle;
+    }
+    .history-time {
+      font-family: 'Consolas', 'SF Mono', monospace;
+      color: #71717a;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .history-pattern-name {
+      font-weight: 700;
+      color: #e2e8f0;
+    }
+    .history-badge-dir {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 800;
+      text-align: center;
+    }
+    .history-badge-buy {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.35);
+    }
+    .history-badge-sell {
+      background: rgba(239, 68, 68, 0.15);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.35);
+    }
+    .history-px {
+      font-family: 'Consolas', 'SF Mono', monospace;
+      font-weight: 700;
+      text-align: right;
+    }
+    .btn-view-detail {
+      background: #232733;
+      border: 1px solid #323849;
+      color: #93c5fd;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.12s;
+    }
+    .btn-view-detail:hover {
+      background: #3b82f6;
+      color: #fff;
+      border-color: #3b82f6;
+    }
+    .history-empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 20px;
+      color: #64748b;
+    }
+
+</style>
 </head>
 <body>
 
@@ -925,12 +1119,35 @@
     </div>
   </div>
 
-  <!-- Filter & Action Strip -->
+  <!-- Navigation & Action Strip -->
   <div class="filter-bar">
-    <div class="filter-group">
-      <button class="filter-btn active" id="btnFilterAll" onclick="setDirectionFilter('ALL', this)">Semua Sinyal (0)</button>
-      <button class="filter-btn" id="btnFilterBuy" onclick="setDirectionFilter('BUY', this)" style="color:var(--accent-green);">BUY Saja (0)</button>
-      <button class="filter-btn" id="btnFilterSell" onclick="setDirectionFilter('SELL', this)" style="color:var(--accent-red);">SELL Saja (0)</button>
+    <div style="display:flex; align-items:center; gap:10px;">
+      <!-- Main Dual-View Navigation Tabs -->
+      <div class="view-tabs">
+        <button class="view-tab active" id="tabRadar" onclick="switchView('radar')">
+          <span>📡</span> RADAR AKTIF
+          <span class="tab-badge badge-neutral" id="badgeActiveCount">0</span>
+        </button>
+        <button class="view-tab" id="tabHistory" onclick="switchView('history')">
+          <span>📜</span> JURNAL RIWAYAT
+          <span class="tab-badge badge-neutral" id="badgeHistoryCount">0</span>
+        </button>
+      </div>
+
+      <!-- Radar Direction Filter Group (Active on Radar View) -->
+      <div class="filter-group" id="radarFilterGroup">
+        <button class="filter-btn active" id="btnFilterAll" onclick="setDirectionFilter('ALL', this)">Semua Sinyal (0)</button>
+        <button class="filter-btn" id="btnFilterBuy" onclick="setDirectionFilter('BUY', this)" style="color:var(--accent-green);">BUY Saja (0)</button>
+        <button class="filter-btn" id="btnFilterSell" onclick="setDirectionFilter('SELL', this)" style="color:var(--accent-red);">SELL Saja (0)</button>
+      </div>
+
+      <!-- History Status Filter Group (Active on History View) -->
+      <div class="filter-group" id="historyFilterGroup" style="display:none;">
+        <button class="filter-btn active" id="btnHistFilterAll" onclick="setHistoryFilter('ALL', this)">Semua Log (0)</button>
+        <button class="filter-btn" id="btnHistFilterConf" onclick="setHistoryFilter('CONFIRMED', this)" style="color:#10b981;">✔ Confirmed (0)</button>
+        <button class="filter-btn" id="btnHistFilterInval" onclick="setHistoryFilter('INVALIDATED', this)" style="color:#ef4444;">✖ Invalidated (0)</button>
+        <button class="filter-btn" id="btnHistFilterExp" onclick="setHistoryFilter('EXPIRED', this)" style="color:#94a3b8;">⏱ Expired (0)</button>
+      </div>
     </div>
 
     <div class="action-group">
@@ -941,23 +1158,78 @@
     </div>
   </div>
 
-  <!-- Viewport Area (Only Active Signals or Radar Scanning Screen) -->
-  <main class="viewport" id="viewportMain">
-    <div class="signal-grid" id="signalGrid">
-      <!-- Active signal cards dynamically injected here -->
+  <!-- Viewport Area (Dual View: Active Radar OR History Journal) -->
+  <main class="viewport" id="viewportMain" style="padding:0; display:flex; flex-direction:column; overflow:hidden;">
+    <!-- View 1: Radar Aktif -->
+    <div id="viewRadarContainer" style="display:flex; flex-direction:column; flex:1; width:100%; height:100%; padding:14px; box-sizing:border-box; overflow-y:auto;">
+      <div class="signal-grid" id="signalGrid">
+        <!-- Active signal cards dynamically injected here -->
+      </div>
+
+      <div class="radar-empty-state" id="radarEmpty">
+        <div class="radar-pulse-ring">
+          <div class="radar-circle"></div>
+          <div class="radar-circle"></div>
+          <div class="radar-circle"></div>
+          <div class="radar-core"></div>
+        </div>
+        <div class="radar-title">MEMINDAI 40 KELUARGA POLA ENTRY (DUKASCOPY LIVE)</div>
+        <div class="radar-desc">
+          Kondisi pasar sedang dipindai secara agnostik. Pola yang idle tidak dimunculkan.<br>
+          Begitu ada pola terpenuhi, sinyal <strong>BUY (Hijau)</strong> atau <strong>SELL (Merah)</strong> akan langsung muncul di sini.
+        </div>
+      </div>
     </div>
 
-    <div class="radar-empty-state" id="radarEmpty">
-      <div class="radar-pulse-ring">
-        <div class="radar-circle"></div>
-        <div class="radar-circle"></div>
-        <div class="radar-circle"></div>
-        <div class="radar-core"></div>
+    <!-- View 2: Jurnal Riwayat Sinyal -->
+    <div id="viewHistoryContainer" style="display:none; flex-direction:column; flex:1; width:100%; height:100%; overflow:hidden;">
+      <!-- Session KPI Summary Banner -->
+      <div class="history-summary-strip">
+        <div class="kpi-card">
+          <span class="kpi-label">TOTAL SINYAL TERDETEKSI</span>
+          <span class="kpi-val" id="kpiTotalSignals">0</span>
+        </div>
+        <div class="kpi-card kpi-confirmed">
+          <span class="kpi-label">✔ TERKONFIRMASI (TP TARGET)</span>
+          <span class="kpi-val" id="kpiConfirmed">0 <small id="kpiConfirmedPct" style="font-size:11px; opacity:0.8;">(0%)</small></span>
+        </div>
+        <div class="kpi-card kpi-invalidated">
+          <span class="kpi-label">✖ BATAL / STOP LOSS (INVAL)</span>
+          <span class="kpi-val" id="kpiInvalidated">0 <small id="kpiInvalidatedPct" style="font-size:11px; opacity:0.8;">(0%)</small></span>
+        </div>
+        <div class="kpi-card kpi-expired">
+          <span class="kpi-label">⏱ KADALUWARSA (BAR TIMEOUT)</span>
+          <span class="kpi-val" id="kpiExpired">0 <small id="kpiExpiredPct" style="font-size:11px; opacity:0.8;">(0%)</small></span>
+        </div>
       </div>
-      <div class="radar-title">MEMINDAI 40 KELUARGA POLA ENTRY (DUKASCOPY LIVE)</div>
-      <div class="radar-desc">
-        Kondisi pasar sedang dipindai secara agnostik. Pola yang idle tidak dimunculkan.<br>
-        Begitu ada pola terpenuhi, sinyal <strong>BUY (Hijau)</strong> atau <strong>SELL (Merah)</strong> akan langsung muncul di sini.
+
+      <!-- History Table Container -->
+      <div class="history-table-wrapper">
+        <table class="history-table">
+          <thead>
+            <tr>
+              <th style="width: 85px;">WAKTU</th>
+              <th>STRATEGI & METODE</th>
+              <th style="width: 75px; text-align:center;">ARAH</th>
+              <th style="width: 100px; text-align:right;">TRIGGER</th>
+              <th style="width: 105px; text-align:right;">EST FILL</th>
+              <th style="width: 100px; text-align:right;">INVALID (SL)</th>
+              <th style="width: 130px; text-align:center;">STATUS AKHIR</th>
+              <th style="width: 75px; text-align:center;">AKSI</th>
+            </tr>
+          </thead>
+          <tbody id="historyTableBody">
+            <!-- Dynamic rows injected here -->
+          </tbody>
+        </table>
+
+        <div class="history-empty-state" id="historyEmpty" style="display:flex;">
+          <div style="font-size:28px; margin-bottom:8px;">📜</div>
+          <div style="font-size:13px; font-weight:700; color:#e2e8f0; margin-bottom:4px;">BELUM ADA RIWAYAT SINYAL PADA SESI INI</div>
+          <div style="font-size:11.5px; color:#94a3b8; max-width:440px; text-align:center; line-height:1.5;">
+            Sinyal entry yang terpicu akan otomatis dicatat di sini lengkap dengan harga trigger, estimasi fill spread, dan status akhir (Confirmed, Invalidated, atau Expired).
+          </div>
+        </div>
       </div>
     </div>
   </main>
@@ -1038,6 +1310,231 @@
     let currentDirFilter = 'ALL';
     let previousSignalTimestamps = {};
 
+    let currentView = 'radar'; // 'radar' | 'history'
+    let currentHistoryFilter = 'ALL'; // 'ALL' | 'CONFIRMED' | 'INVALIDATED' | 'EXPIRED'
+    let historySignals = [];
+
+    function switchView(viewName) {
+      currentView = viewName;
+      const tabRadar = document.getElementById('tabRadar');
+      const tabHist = document.getElementById('tabHistory');
+      const viewRadar = document.getElementById('viewRadarContainer');
+      const viewHist = document.getElementById('viewHistoryContainer');
+      const radarFilterGroup = document.getElementById('radarFilterGroup');
+      const histFilterGroup = document.getElementById('historyFilterGroup');
+
+      if (viewName === 'radar') {
+        if (tabRadar) tabRadar.classList.add('active');
+        if (tabHist) tabHist.classList.remove('active');
+        if (viewRadar) viewRadar.style.display = 'flex';
+        if (viewHist) viewHist.style.display = 'none';
+        if (radarFilterGroup) radarFilterGroup.style.display = 'flex';
+        if (histFilterGroup) histFilterGroup.style.display = 'none';
+        renderSignals();
+      } else {
+        if (tabHist) tabHist.classList.add('active');
+        if (tabRadar) tabRadar.classList.remove('active');
+        if (viewHist) viewHist.style.display = 'flex';
+        if (viewRadar) viewRadar.style.display = 'none';
+        if (histFilterGroup) histFilterGroup.style.display = 'flex';
+        if (radarFilterGroup) radarFilterGroup.style.display = 'none';
+        renderHistory();
+      }
+    }
+
+    function setHistoryFilter(status, btn) {
+      currentHistoryFilter = status;
+      document.querySelectorAll('#historyFilterGroup .filter-btn').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      renderHistory();
+    }
+
+    function renderHistory() {
+      const tbody = document.getElementById('historyTableBody');
+      const emptyEl = document.getElementById('historyEmpty');
+      const tableWrapper = document.querySelector('.history-table-wrapper table');
+      if (!tbody) return;
+
+      // Filter signals
+      const filtered = historySignals.filter(sig => {
+        if (currentHistoryFilter === 'ALL') return true;
+        const st = (sig.status || '').toUpperCase();
+        return st === currentHistoryFilter;
+      });
+
+      // KPI Counters calculation
+      const total = historySignals.length;
+      const confCnt = historySignals.filter(s => (s.status || '').toUpperCase() === 'CONFIRMED').length;
+      const invalCnt = historySignals.filter(s => (s.status || '').toUpperCase() === 'INVALIDATED').length;
+      const expCnt = historySignals.filter(s => (s.status || '').toUpperCase() === 'EXPIRED').length;
+
+      const confPct = total > 0 ? Math.round((confCnt / total) * 100) : 0;
+      const invalPct = total > 0 ? Math.round((invalCnt / total) * 100) : 0;
+      const expPct = total > 0 ? Math.round((expCnt / total) * 100) : 0;
+
+      const kpiTot = document.getElementById('kpiTotalSignals');
+      const kpiConf = document.getElementById('kpiConfirmed');
+      const kpiInval = document.getElementById('kpiInvalidated');
+      const kpiExp = document.getElementById('kpiExpired');
+
+      if (kpiTot) kpiTot.innerText = total;
+      if (kpiConf) kpiConf.innerHTML = `${confCnt} <small style="font-size:11px; opacity:0.8;">(${confPct}%)</small>`;
+      if (kpiInval) kpiInval.innerHTML = `${invalCnt} <small style="font-size:11px; opacity:0.8;">(${invalPct}%)</small>`;
+      if (kpiExp) kpiExp.innerHTML = `${expCnt} <small style="font-size:11px; opacity:0.8;">(${expPct}%)</small>`;
+
+      // Update Filter buttons text with count
+      const bAll = document.getElementById('btnHistFilterAll');
+      const bConf = document.getElementById('btnHistFilterConf');
+      const bInval = document.getElementById('btnHistFilterInval');
+      const bExp = document.getElementById('btnHistFilterExp');
+      if (bAll) bAll.innerText = `Semua Log (${total})`;
+      if (bConf) bConf.innerText = `✔ Confirmed (${confCnt})`;
+      if (bInval) bInval.innerText = `✖ Invalidated (${invalCnt})`;
+      if (bExp) bExp.innerText = `⏱ Expired (${expCnt})`;
+
+      // Update strip counter
+      const scText = document.getElementById('signalCountText');
+      if (scText) scText.innerText = `${filtered.length} Log Riwayat`;
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = '';
+        if (emptyEl) emptyEl.style.display = 'flex';
+        return;
+      }
+
+      if (emptyEl) emptyEl.style.display = 'none';
+
+      tbody.innerHTML = filtered.map(sig => {
+        const isBuy = sig.direction === 'BUY';
+        const dirBadge = isBuy
+          ? '<span class="history-badge-dir history-badge-buy">▲ BUY</span>'
+          : '<span class="history-badge-dir history-badge-sell">▼ SELL</span>';
+
+        const stVal = (sig.status || 'ACTIVE').toUpperCase();
+        let stClass = 'status-active';
+        if (stVal === 'CONFIRMED') stClass = 'status-confirmed';
+        else if (stVal === 'INVALIDATED') stClass = 'status-invalidated';
+        else if (stVal === 'EXPIRED') stClass = 'status-expired';
+        else if (stVal === 'PENDING_CONFIRMATION') stClass = 'status-pending';
+
+        const trigPx = sig.trigger_price != null ? Number(sig.trigger_price).toFixed(2) : '-';
+        const execPx = sig.execution_price != null ? Number(sig.execution_price).toFixed(2) : trigPx;
+        const invalPx = sig.invalidation_price != null ? Number(sig.invalidation_price).toFixed(2) : '-';
+        const timeDisplay = sig.time_str || (sig.timestamp_ms ? new Date(sig.timestamp_ms).toLocaleTimeString() : '-');
+
+        const safeEventId = (sig.event_id || '').replace(/'/g, "\\'");
+
+        return `
+          <tr onclick="openSignalDetailModal(${sig.pattern_id}, '${safeEventId}')">
+            <td class="history-time">${timeDisplay}</td>
+            <td>
+              <span class="history-pattern-name">#${String(sig.pattern_id).padStart(2, '0')} ${sig.family_name}</span>
+              <span class="modal-category-badge" style="font-size:9px; padding:1px 5px; margin-left:5px;">${sig.pattern_role || 'ENTRY'}</span>
+            </td>
+            <td style="text-align:center;">${dirBadge}</td>
+            <td class="history-px">${trigPx}</td>
+            <td class="history-px" style="color:#98c379;">${execPx}</td>
+            <td class="history-px" style="color:#e06c75;">${invalPx}</td>
+            <td style="text-align:center;"><span class="status-pill ${stClass}">${stVal}</span></td>
+            <td style="text-align:center;">
+              <button class="btn-view-detail" onclick="event.stopPropagation(); openSignalDetailModal(${sig.pattern_id}, '${safeEventId}')">Detail</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function openSignalDetailModal(patternId, eventId) {
+      let sig = null;
+      if (eventId) {
+        sig = historySignals.find(s => s.event_id === eventId);
+      }
+      if (!sig) {
+        const p = activePatterns.find(x => x.id === patternId);
+        if (p && p.last_signal) sig = p.last_signal;
+      }
+      if (!sig) {
+        sig = historySignals.find(s => s.pattern_id === patternId);
+      }
+      if (!sig) return;
+
+      const pMeta = activePatterns.find(x => x.id === patternId) || {};
+      const patName = sig.family_name || pMeta.name || `Pola #${patternId}`;
+      const patCat = pMeta.category || 'Price Action';
+      const patDesc = pMeta.description || 'Pola terdeteksi berdasarkan aturan konfirmasi bar Dukascopy.';
+
+      document.getElementById('modalPatternName').innerText = `#${String(sig.pattern_id).padStart(2, '0')} ${patName}`;
+      document.getElementById('modalCategoryBadge').innerText = patCat;
+      document.getElementById('modalDescription').innerText = patDesc;
+
+      const dirEl = document.getElementById('modalDirection');
+      if (dirEl) {
+        dirEl.innerText = sig.direction;
+        dirEl.className = 'summary-val ' + (sig.direction === 'BUY' ? 'buy' : 'sell');
+      }
+
+      document.getElementById('modalRoleBadge').innerText = sig.pattern_role || 'ENTRY';
+      const trigPx = (sig.trigger_price != null ? sig.trigger_price : sig.price);
+      document.getElementById('modalPrice').innerText = trigPx != null ? Number(trigPx).toFixed(2) : '-';
+      const execPx = sig.execution_price != null ? sig.execution_price : trigPx;
+      const modalExecEl = document.getElementById('modalExecPrice');
+      if (modalExecEl) {
+        if (execPx != null) {
+          modalExecEl.innerText = `(Fill: ${Number(execPx).toFixed(2)})`;
+          modalExecEl.style.display = 'inline';
+        } else {
+          modalExecEl.style.display = 'none';
+        }
+      }
+      document.getElementById('modalRefPrice').innerText = sig.reference_price != null ? Number(sig.reference_price).toFixed(2) : '-';
+      document.getElementById('modalInvalPrice').innerText = sig.invalidation_price != null ? Number(sig.invalidation_price).toFixed(2) : '-';
+      document.getElementById('modalTime').innerText = sig.time_str || (sig.timestamp_ms ? new Date(sig.timestamp_ms).toLocaleTimeString() : '-');
+
+      const stVal = (sig.status || 'ACTIVE').toUpperCase();
+      const statusBadge = document.getElementById('modalStatusBadge');
+      const statusReason = document.getElementById('modalStatusReason');
+      if (statusBadge) {
+        statusBadge.innerText = stVal;
+        statusBadge.className = 'status-pill ' + (
+          stVal === 'CONFIRMED' ? 'status-confirmed' :
+          stVal === 'PENDING_CONFIRMATION' ? 'status-pending' :
+          stVal === 'INVALIDATED' ? 'status-invalidated' :
+          stVal === 'EXPIRED' ? 'status-expired' : 'status-active'
+        );
+      }
+      if (statusReason) {
+        statusReason.innerText = sig.status_reason || 'Kondisi entry pola terpenuhi';
+      }
+
+      const phenomBox = document.getElementById('modalPhenomenonBox');
+      const phenomText = sig.phenomenon || pMeta.phenomenon;
+      if (phenomText) {
+        phenomBox.style.display = 'block';
+        document.getElementById('modalPhenomenon').innerText = phenomText;
+      } else {
+        phenomBox.style.display = 'none';
+      }
+
+      const listEl = document.getElementById('modalReasonsList');
+      if (sig.reasons && sig.reasons.length > 0) {
+        listEl.innerHTML = sig.reasons.map(r => `
+          <li class="reason-item">
+            <span class="reason-check">[✓]</span>
+            <span>${r}</span>
+          </li>
+        `).join('');
+      } else {
+        listEl.innerHTML = `
+          <li class="reason-item">
+            <span class="reason-check">[✓]</span>
+            <span>Seluruh kondisi batas dan trigger matematis pola terpenuhi secara valid.</span>
+          </li>
+        `;
+      }
+
+      document.getElementById('detailModal').classList.add('open');
+    }
+
     function winMin() {
       if (window.pywebview && window.pywebview.api) window.pywebview.api.minimize_window();
     }
@@ -1059,7 +1556,12 @@
       if (window.pywebview && window.pywebview.api) {
         await window.pywebview.api.clear_signals();
         activePatterns = [];
-        renderSignals();
+        historySignals = [];
+        if (currentView === 'radar') {
+          renderSignals();
+        } else {
+          renderHistory();
+        }
       }
     }
 
@@ -1415,10 +1917,26 @@
             }
           }
 
+          if (state && state.recent_signals) {
+            historySignals = state.recent_signals;
+            const badgeHist = document.getElementById('badgeHistoryCount');
+            if (badgeHist) badgeHist.innerText = historySignals.length;
+          }
+
           if (state && state.patterns) {
-            // Keep all patterns in memory
             activePatterns = state.patterns;
-            renderSignals();
+            const activeCount = activePatterns.filter(p => p.active && p.direction !== 'NONE').length;
+            const badgeActive = document.getElementById('badgeActiveCount');
+            if (badgeActive) {
+              badgeActive.innerText = activeCount;
+              badgeActive.className = activeCount > 0 ? 'tab-badge badge-active-signals' : 'tab-badge badge-neutral';
+            }
+
+            if (currentView === 'radar') {
+              renderSignals();
+            } else {
+              renderHistory();
+            }
           }
         }
       } catch (err) {

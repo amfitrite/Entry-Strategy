@@ -65,3 +65,44 @@ def test_matrix_window_api_toggle_simple_mode():
     assert "▼ SELL: 3" in mock_win.title
 
     service.stop()
+
+
+def test_matrix_window_api_recent_signals_history():
+    """Verify that recent_signals history journal is provided in get_matrix_state."""
+    config = AppConfig(enable_simulation=False)
+    service = EntryStrategyService(config, start_servers=False)
+    api = MatrixWindowAPI(service)
+
+    # Initial state: history empty
+    state_str = api.get_matrix_state()
+    state = json.loads(state_str)
+    assert "recent_signals" in state
+    assert isinstance(state["recent_signals"], list)
+    assert len(state["recent_signals"]) == 0
+
+    # Trigger manual test signal
+    api.trigger_manual_test(1, "BUY")
+    state_str2 = api.get_matrix_state()
+    state2 = json.loads(state_str2)
+    assert len(state2["recent_signals"]) == 1
+    sig = state2["recent_signals"][0]
+    assert sig["pattern_id"] == 1
+    assert sig["direction"] == "BUY"
+    assert "execution_price" in sig
+    assert "invalidation_price" in sig
+    assert "status" in sig
+
+    # Trigger second test signal
+    api.trigger_manual_test(13, "SELL")
+    state_str3 = api.get_matrix_state()
+    state3 = json.loads(state_str3)
+    assert len(state3["recent_signals"]) == 2
+    assert state3["recent_signals"][0]["pattern_id"] == 13
+
+    # Clear signals resets history
+    api.clear_signals()
+    state_str4 = api.get_matrix_state()
+    state4 = json.loads(state_str4)
+    assert len(state4["recent_signals"]) == 0
+
+    service.stop()
