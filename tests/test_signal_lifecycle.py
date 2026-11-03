@@ -80,7 +80,7 @@ def test_signal_confirmed_buy_and_sell():
     # BUY test
     sig_buy = EntrySignal(
         pattern_id=11,
-        family_name="Tick Momentum",
+        family_name="CHoCH (Change of Character)",
         direction=SignalDirection.BUY,
         reference_price=2740.0,
         trigger_price=2742.0,
