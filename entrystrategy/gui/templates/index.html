@@ -198,38 +198,6 @@
       box-shadow: 0 0 8px rgba(56, 189, 248, 0.45);
     }
 
-    /* Tick Analysis Mode Toggle */
-    .btn-ticks-toggle {
-      background: #17181c;
-      border: 1px solid #2d3038;
-      color: #94a3b8;
-      font-size: 11px;
-      font-weight: 800;
-      padding: 3px 9px;
-      border-radius: 8px;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      transition: all 0.15s;
-    }
-    .btn-ticks-toggle:hover {
-      background: #22252c;
-      color: #fff;
-    }
-    .btn-ticks-toggle.active {
-      background: #0d281d;
-      color: #00e676;
-      border-color: #1a5e3a;
-      box-shadow: 0 0 6px rgba(0, 230, 118, 0.2);
-    }
-    .btn-ticks-toggle.disabled-mode {
-      background: #1e2026;
-      color: #64748b;
-      border-color: #333846;
-      opacity: 0.85;
-    }
-
     /* --- Simple Mode (Compact Taskbar Mini-Bar) --- */
     body.simple-mode {
       background: #111317 !important;
@@ -1333,17 +1301,6 @@
         console.error("Error setting timeframe:", e);
       } finally {
         setTimeout(syncState, 50);
-      }
-    }
-
-    async function toggleTicksMode() {
-      try {
-        if (window.pywebview && window.pywebview.api && window.pywebview.api.toggle_ticks_mode) {
-          await window.pywebview.api.toggle_ticks_mode();
-          syncState();
-        }
-      } catch (e) {
-        console.error("Error toggling ticks mode:", e);
       }
     }
 
