@@ -13,13 +13,29 @@ from entrystrategy.core.models import Candle, TickData
 
 logger = logging.getLogger("EntryStrategy.DukascopyFeed")
 
+# dukascopy-python 5.0.0 references requests.Session in module-level
+# annotations without importing requests into its own namespace. Supply the
+# name during import, then bind it on the package for later function lookups.
 try:
-    import dukascopy_python as duka
-    from dukascopy_python.instruments import I_XAU_USD
-    DUKASCOPY_AVAILABLE = True
-except ImportError:
+    import builtins
+    import requests as _requests
+
+    _had_builtin_requests = hasattr(builtins, "requests")
+    if not _had_builtin_requests:
+        builtins.requests = _requests
+    try:
+        import dukascopy_python as duka
+        from dukascopy_python.instruments import I_XAU_USD
+        duka.requests = _requests
+        DUKASCOPY_AVAILABLE = True
+    finally:
+        if not _had_builtin_requests:
+            del builtins.requests
+except Exception as exc:
+    duka = None
+    I_XAU_USD = None
     DUKASCOPY_AVAILABLE = False
-    logger.warning("dukascopy-python package is not installed. Live feed will operate in mock mode.")
+    logger.warning("dukascopy-python import unavailable: %s", exc)
 
 
 class DukascopyFeed:
