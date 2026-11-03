@@ -1,109 +1,86 @@
-# ⚡ Entry Strategy Matrix Studio (Dukascopy Live)
+# Entry Strategy Matrix Studio — XAUUSD M1/M5
 
-Aplikasi Kumpulan Pola Entry Strategi Agnostik berkinerja tinggi untuk **XAUUSD (Gold)**. Beroperasi **100% mandiri (standalone)** tanpa ketergantungan pada MetaTrader 5 atau software eksternal, ditenagai langsung oleh data real-time dan historis institusional dari **Dukascopy Bank ECN Marketplace (Geneva, Swiss)**.
+Engine entry berbasis **completed OHLC candles** untuk XAUUSD, dengan feed historis dan live Dukascopy. Aplikasi tetap standalone dan tidak membutuhkan MT4/MT5 atau EA.
 
----
+## Prinsip analisis
 
-## 🌟 Fitur Utama
+- Seluruh 40 strategi mengevaluasi candle timeframe aktif: **M1 atau M5**.
+- Sinyal baru diputuskan setelah candle selesai. Wick/intrabar yang belum ditutup tidak boleh memicu entry.
+- **Tidak ada strategi tick, tick imbalance, tick velocity, tick burst, atau tick acceleration.** Modul tick-only telah dihapus.
+- Stream bid/ask tetap boleh dipakai untuk quote, estimasi harga eksekusi BUY/SELL, dan pembaruan lifecycle sinyal. Stream tersebut tidak boleh menjadi pemicu pola entry.
+- M1 dan M5 memiliki buffer terpisah. Perpindahan timeframe mengganti konteks evaluasi; data M1 tidak boleh mencampuri M5 dan sebaliknya.
 
-1. **100% Standalone (Bebas MT5 & Zero Setup):**
-   - Tidak lagi membutuhkan MetaTrader 5, socket TCP lokal port 5558, ataupun instalasi EA MQL5.
-   - Cukup jalankan aplikasi dengan Python, feed pasar XAUUSD langsung streaming dari Dukascopy Bank.
+## Katalog 40 strategi
 
-2. **Instant Warm-up (100 Candle M5 Otomatis):**
-   - Mengatasi masalah *cold start*: saat aplikasi dinyalakan, modul langsung mengunduh **100 candle M5 terakhir** (< 1 detik).
-   - Seluruh 40 strategi entry langsung terisi konteks pasar dan siap memicu sinyal sejak detik pertama.
+| ID | Strategi | Kelompok | Definisi pemicu ringkas |
+|---:|---|---|---|
+| 1 | Candlestick Reversal | Candle | Engulfing bullish/bearish |
+| 2 | Candlestick Continuation | Candle | Three White Soldiers / Three Black Crows |
+| 3 | Multi-Candle Reversal | Candle | Reversal dua candle dengan konfirmasi body |
+| 4 | Inside Bar Breakout | Candle | Break close dari mother bar setelah inside-bar setup |
+| 5 | Outside Bar | Candle | Outside bar diikuti continuation |
+| 6 | Momentum Candle | Candle | Ekspansi range dan body dominan |
+| 7 | Breakout | Price Action | Close melewati high/low candle referensi |
+| 8 | Failed Breakout / Sweep & Reclaim | Price Action | Wick sweep level lalu close reclaim |
+| 9 | Micro Pullback | Price Action | Retracement impuls dan close kembali searah |
+| 10 | Micro Trend Reversal | Structure | Perubahan swing lokal dan close break |
+| 11 | **CHoCH** | Structure | Close menembus protected swing melawan struktur tren sebelumnya |
+| 12 | **BOS** | Structure | Close menembus swing searah struktur HH/HL atau LH/LL |
+| 13 | **Candle Displacement** | Price Action | Range/body ekspansif dan close di luar range lokal |
+| 14 | **Breakout Retest** | Price Action | Breakout close, retest level, lalu close mempertahankan level |
+| 15 | **Fair Value Gap (FVG)** | Price Action | Inefisiensi tiga candle setelah displacement |
+| 16 | **FVG Retest** | Price Action | Retest zona FVG dan rejection close |
+| 17 | **Order Block Retest** | Price Action | Retest candle lawan terakhir sebelum displacement dan break |
+| 18 | Micro Range Expansion | Price Action | Range candle mengembang dibanding bar sebelumnya |
+| 19 | Micro Range Compression | Price Action | Konsolidasi beberapa candle dan close breakout |
+| 20 | Volatility Burst (OHLC) | Price Action | Range melebar, body dominan, close dekat ekstrem |
+| 21 | Volatility Contraction | Candle | Penyusutan range beberapa candle |
+| 22 | Trend Pullback | Price Action | Pullback pada HH/HL atau LH/LL lalu close continuation |
+| 23 | Donchian Range Breakout | Price Action | Close keluar dari range high/low multi-candle |
+| 24 | Rejection Pattern | Candle | Wick rejection pada ekstrem candle |
+| 25 | Wick Pattern | Candle | Pin bar / hammer / shooting star |
+| 26 | Body Expansion | Candle | Body candle membesar berturut-turut |
+| 27 | Body Contraction | Candle | Body candle mengecil berturut-turut |
+| 28 | Gap Pattern | Candle | Gap harga antar candle |
+| 29 | Failed Momentum | Price Action | Impuls gagal dipertahankan dan close berbalik |
+| 30 | Momentum Exhaustion | Price Action | Impuls besar kehilangan follow-through |
+| 31 | Micro Double Top | Structure | Dua puncak sejajar dan bearish close rejection |
+| 32 | Micro Double Bottom | Structure | Dua lembah sejajar dan bullish close rejection |
+| 33 | Micro Swing Break | Structure | Close menembus swing lima candle |
+| 34 | Micro Swing Failure | Structure | Wick sweep swing lalu close kembali ke dalam |
+| 35 | Three-Push Pattern | Structure | Tiga dorongan melemah dan candle close membalik struktur |
+| 36 | V-Reversal | Candle | Kejatuhan diikuti bullish recovery candle |
+| 37 | Inverted V-Reversal | Candle | Reli diikuti bearish reversal candle |
+| 38 | Staircase Pattern | Candle | Urutan higher-high/higher-low atau lower-high/lower-low |
+| 39 | Candle Sequence | Candle | Urutan multi-candle yang membentuk reversal |
+| 40 | Candle Rejection Confluence | Candle | Rejection wick dan follow-through candle berikutnya |
 
-3. **Agnostik Pasar Murni (Pure Deterministic Engine):**
-   - Tidak tergantung pada SNR makro, Support/Demand harian, atau indikator lagging.
-   - Evaluasi murni berbasis kondisi matematis tertutup pada jendela candle M5 (dengan opsi M1).
+Strategi 11–17, 22–23 menggantikan slot yang sebelumnya khusus tick-based. ID tetap dipertahankan agar matriks, API, dan penyimpanan sinyal tetap kompatibel.
 
-4. **Katalog Lengkap 40 Keluarga Strategi Entry:**
-   - 12 Pola Pure Candlestick (Engulfing, Three Soldiers, Inside/Outside Bar, Wick Rejection, dll).
-   - 9 Pola Pure Microstructure (Displacement, Velocity, Imbalance, Exhaustion, dll).
-   - 14 Pola Hybrid (Breakout, Failed Breakout / Sweep & Reclaim, Micro Pullback, V-Reversal, dll).
-   - 5 Pola Micro-Swing Geometry (Micro Double Top/Bottom, Micro Swing Break/Failure, Three-Push Pattern).
+## Lifecycle sinyal
 
-5. **Siklus Hidup Sinyal 5 Status (Zero Repainting):**
-   - `ACTIVE` $\rightarrow$ `PENDING_CONFIRMATION` $\rightarrow$ `CONFIRMED` $\rightarrow$ `INVALIDATED` / `EXPIRED`.
-   - Sinyal tidak menghilang secara keliru saat candle pemicu selesai.
+Sinyal yang sudah lahir disimpan dan bergerak melalui status:
 
-6. **Desain UI Sederhana & Padat (Dense Matrix View):**
-   - Seluruh 40 keluarga strategi tampil **dalam satu layar penuh tanpa perlu scroll**.
-   - Dilengkapi **Simple Mode** (mini float bar) untuk memantau sinyal saat membuka aplikasi lain.
-   - On-Demand Detail Pop-up Modal untuk melihat rincian alasan sinyal, harga trigger, dan invalidation level.
+`ACTIVE → PENDING_CONFIRMATION → CONFIRMED`
 
----
+atau berakhir melalui `INVALIDATED` / `EXPIRED`.
 
-## 🚀 Cara Menjalankan
+Setiap sinyal mencatat alasan pemicu, reference price, trigger price, estimasi execution price, invalidation level, timeframe, dan event ID. Penutupan candle berikutnya yang tidak memenuhi pola tidak otomatis menghapus sinyal sebelumnya.
 
-### Jalankan Aplikasi
-Jalankan file batch:
-```cmd
-run_app.bat
-```
-atau via terminal:
+## Menjalankan aplikasi
+
 ```bash
 python run_app.py
 ```
 
-Aplikasi akan otomatis mengunduh 100 candle M5 XAUUSD terkini dari Dukascopy dan langsung memulai pemindaian sinyal real-time.
+Atau jalankan `run_app.bat` pada Windows. Timeframe default adalah M5; M1 tersedia melalui pilihan timeframe.
 
----
+## Pengujian
 
-## 📋 Daftar 40 Keluarga Strategi Entry
-
-| No | Keluarga Strategi | Tipe Data | Deskripsi Singkat Logika |
-|:---:|:---|:---:|:---|
-| 1 | **Candlestick Reversal** | Candle | Engulfing body rasio $\ge 1.1\times$ bar sebelumnya |
-| 2 | **Candlestick Continuation** | Candle | Three White Soldiers / Three Black Crows |
-| 3 | **Multi-Candle Reversal** | Candle | Two-Bar Reversal dengan ukuran body seimbang |
-| 4 | **Inside Bar** | Candle | Breakout penembusan batas mother bar |
-| 5 | **Outside Bar** | Candle | Mother bar menelan bar sebelumnya lalu melanjutkan ekspansi |
-| 6 | **Momentum** | Candle | Candle besar dengan body $\ge 70\%$ dan range $> 1.6\times$ avg |
-| 7 | **Breakout** | Hybrid | Penembusan High/Low candle bar sebelumnya |
-| 8 | **Failed Breakout** | Hybrid | Liquidity Sweep & Reclaim (Trap ekor menyapu level lalu reclaim) |
-| 9 | **Micro Pullback** | Hybrid | Retracement 50% body bar momentum disusul rebound searah |
-| 10 | **Micro Trend Reversal** | Hybrid | Patahnya tren lokal 3 bar oleh akselerasi bar berjalan |
-| 11 | **Momentum Displacement** | Micro | Akumulasi pergeseran harga dalam jendela pergerakan mikro |
-| 12 | **V-Reversal Flow** | Micro | Pembalikan cepat arah harga mikro (V-Shape micro) |
-| 13 | **Tick Imbalance** | Micro | Dominasi arah tick/bar dalam jendela mikro |
-| 14 | **Micro Burst** | Micro | Lonjakan frekuensi transaksi dan rentang harga |
-| 15 | **Micro Exhaustion** | Micro | Likuiditas terserap: aktivitas tinggi namun harga terhenti |
-| 16 | **Price Velocity** | Micro | Kecepatan perpindahan harga per detik ($\Delta P / \Delta t$) |
-| 17 | **Price Acceleration** | Micro | Percepatan laju pergerakan harga ($\Delta V / \Delta t$) |
-| 18 | **Micro Range Expansion** | Hybrid | Rentang harga melompat melampaui rata-rata range bar |
-| 19 | **Micro Range Compression** | Hybrid | Rentang harga menyempit ketat sebelum ledakan harga |
-| 20 | **Volatility Burst** | Hybrid | Lonjakan serentak aktivitas transaksi dan rentang harga |
-| 21 | **Volatility Contraction** | Candle | Penyusutan range candle 3 bar berturut-turut |
-| 22 | **Consecutive Price Movement**| Micro | 6 bar/tick berurutan bergerak searah tanpa interupsi |
-| 23 | **Alternating Pattern** | Micro | Patahnya osilasi harga bolak-balik |
-| 24 | **Rejection Pattern** | Hybrid | Penolakan harga cepat di level ekstrem meninggalkan ekor |
-| 25 | **Wick Pattern** | Candle | Pin Bar / Hammer: Panjang wick $\ge 60\%$ total rentang |
-| 26 | **Body Expansion** | Candle | Body candle membesar berturut-turut $> 20\%$ per bar |
-| 27 | **Body Contraction** | Candle | Body candle mengecil berturut-turut (exhaustion fade) |
-| 28 | **Gap Pattern** | Hybrid | Lompatan harga antar candle berturut-turut |
-| 29 | **Failed Momentum** | Hybrid | Dorongan momentum awal gagal dan berbalik 100% |
-| 30 | **Momentum Exhaustion** | Hybrid | Tenaga buyer/seller habis setelah pergerakan panjang |
-| 31 | **Micro Double Top** | Swing | Dua puncak lokal sejajar gagal ditembus ke atas |
-| 32 | **Micro Double Bottom** | Swing | Dua lembah lokal sejajar gagal ditembus ke bawah |
-| 33 | **Micro Swing Break** | Swing | Penembusan swing level 5 bar terakhir |
-| 34 | **Micro Swing Failure** | Swing | Kegagalan menembus swing level 5 bar terakhir |
-| 35 | **Three-Push Pattern** | Swing | Tiga dorongan bertingkat dengan daya dorong mengecil |
-| 36 | **V-Reversal** | Hybrid | Pembalikan cepat berbentuk huruf V |
-| 37 | **Inverted V-Reversal** | Hybrid | Pembalikan cepat berbentuk huruf V terbalik |
-| 38 | **Staircase Pattern** | Candle | Anak tangga 4 bar berturut-turut searah |
-| 39 | **Candle Sequence** | Candle | Urutan khusus (misal Bear-Bear-Doji-Bull) |
-| 40 | **Hybrid Candle Synergy** | Hybrid | Sinergi candle rejection dikonfirmasi oleh pergerakan searah |
-
----
-
-## 🧪 Pengujian & Unit Test
-
-Untuk menjalankan seluruh rangkaian automated unit test (74 test suite: verifikasi 40 pola, akurasi rumus, proteksi data kosong, siklus hidup sinyal, pemisahan timeframe M1/M5, simetri BUY/SELL, dan integrasi Dukascopy Live feed):
 ```bash
 python -m pytest tests -v
 ```
 
-Laporan audit konseptual mendalam dan verifikasi teknis arsitektur 40 strategi dapat dibaca di:
-👉 [`docs/AUDIT_KONSEPTUAL_40_STRATEGI.md`](docs/AUDIT_KONSEPTUAL_40_STRATEGI.md)
+Suite regresi telah disesuaikan untuk strategi candle-only, termasuk struktur CHoCH/BOS, displacement, breakout-retest, FVG, order-block retest, pullback, Donchian breakout, dan larangan akses tick dari strategi.
+
+**Catatan validasi:** pembaruan strategi ini belum membuktikan profitabilitas. Sebelum digunakan untuk keputusan live, jalankan seluruh pytest dan lakukan backtest/walk-forward pada data historis Dukascopy untuk M1 dan M5 secara terpisah. Periksa juga frekuensi sinyal, spread/slippage, invalidation distance, dan hasil BUY/SELL agar aturan yang terlihat simetris benar-benar teruji.
