@@ -18,7 +18,7 @@ def create_candle(dt: datetime, o: float, h: float, l: float, c: float) -> Candl
         tick_volume=100,
         spread=1.4,
         symbol="XAUUSD",
-        timeframe="M1",
+        timeframe="M5",
         is_closed=True,
     )
 

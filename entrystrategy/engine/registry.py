@@ -74,6 +74,12 @@ class PatternRegistry:
             pattern = self._patterns[pid]
             signal = pattern.check(buffer)
             if signal:
+                # Adapt max_age_sec to timeframe if using candle mode
+                if not buffer.enable_ticks:
+                    if buffer.active_timeframe == "M5":
+                        signal.max_age_sec = 300.0  # 5 minutes for M5 bar
+                    elif buffer.active_timeframe == "M1":
+                        signal.max_age_sec = 60.0   # 1 minute for M1 bar
                 fired_signals.append(signal)
         return fired_signals
 

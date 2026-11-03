@@ -58,7 +58,7 @@ class Candle:
     real_volume: float = 0.0
     spread: float = 0.0
     symbol: str = "XAUUSD"
-    timeframe: str = "M1"
+    timeframe: str = "M5"
     is_closed: bool = True
 
     @property

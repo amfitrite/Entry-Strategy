@@ -22,7 +22,7 @@ def create_mock_candle(
         tick_volume=100,
         spread=1.4,
         symbol="XAUUSD",
-        timeframe="M1",
+        timeframe="M5",
         is_closed=True,
     )
 

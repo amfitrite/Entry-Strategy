@@ -12,11 +12,13 @@ class MarketBuffer:
         tick_capacity: int = 2000,
         candle_capacity: int = 300,
         default_timeframe: str = "M5",
+        enable_ticks: bool = True,
+        active_timeframe: Optional[str] = None,
     ):
         self._tick_capacity = tick_capacity
         self._candle_capacity = candle_capacity
-        self.active_timeframe: str = default_timeframe.upper()
-        self.enable_ticks: bool = True
+        self.active_timeframe: str = (active_timeframe or default_timeframe).upper()
+        self.enable_ticks: bool = enable_ticks
         
         self._ticks: deque = deque(maxlen=tick_capacity)
         self._candles_m1: deque = deque(maxlen=candle_capacity)
@@ -69,16 +71,12 @@ class MarketBuffer:
             return [self._ticks[-i] for i in range(n, 0, -1)]
 
     def get_recent_candles(self, count: int = 20, timeframe: Optional[str] = None) -> List[Candle]:
-        """Returns candles with index 0 being the latest completed candle, index 1 being 1 bar ago, etc."""
+        """Returns candles with index 0 being the latest completed candle, index 1 being 1 bar ago, etc.
+        Strictly isolates M1 and M5 without cross-contamination.
+        """
         tf = (timeframe or self.active_timeframe).upper()
         with self._lock:
             source = self._candles_m5 if tf == "M5" else self._candles_m1
-            if not source:
-                alt = self._candles_m1 if tf == "M5" else self._candles_m5
-                if alt:
-                    source = alt
-                elif self._candles:
-                    source = self._candles
             n = min(len(source), count)
             return [source[-i] for i in range(1, n + 1)]
 

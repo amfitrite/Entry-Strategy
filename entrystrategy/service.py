@@ -5,7 +5,7 @@ import time
 from collections import deque
 from typing import Dict, Any, List, Optional, Callable
 from entrystrategy.config import AppConfig
-from entrystrategy.core.models import TickData, Candle, EntrySignal, SignalDirection
+from entrystrategy.core.models import TickData, Candle, EntrySignal, SignalDirection, SignalStatus
 from entrystrategy.core.buffer import MarketBuffer
 from entrystrategy.engine.registry import PatternRegistry
 from entrystrategy.data.mt5_bridge import MT5BridgeServer, MT5NativePoller, MT5_PACKAGE_AVAILABLE
@@ -177,6 +177,10 @@ class EntryStrategyService:
             self.buffer.set_active_timeframe(tf_clean)
             for p in self.registry.get_all_patterns():
                 p.last_candle_ts = None
+            for pid, sig in list(self.latest_signals_by_pattern.items()):
+                if sig.is_alive:
+                    sig.status = SignalStatus.EXPIRED
+                    sig.status_reason = f"Perpindahan timeframe ke {tf_clean}"
         self._evaluate_patterns()
         logger.info(f"Switched active timeframe to {self.active_timeframe} (Buffer candles: {self.buffer.total_candles})")
         return {"success": True, "timeframe": self.active_timeframe, "candle_count": self.buffer.total_candles}
