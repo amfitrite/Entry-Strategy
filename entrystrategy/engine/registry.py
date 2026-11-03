@@ -1,4 +1,4 @@
-"""Registry managing 40 candle-based M1/M5 entry strategy families."""
+"""Registry managing 40 candle-based and 16 volume/order-flow entry strategy families."""
 from typing import Dict, List, Optional
 from entrystrategy.engine.base import BasePattern
 from entrystrategy.core.models import EntrySignal
@@ -8,10 +8,16 @@ from entrystrategy.engine.grading import GradingEngine
 
 
 class PatternRegistry:
-    def __init__(self, grading_engine: Optional[GradingEngine] = None):
+    def __init__(
+        self,
+        grading_engine: Optional[GradingEngine] = None,
+        include_volume_strategies: bool = False,
+    ):
         self._patterns: Dict[int, BasePattern] = {}
         self.grading_engine = grading_engine or GradingEngine()
         self._register_all_40_families()
+        if include_volume_strategies:
+            self._register_volume_orderflow_families()
 
     def _register_all_40_families(self):
         instances = [
@@ -63,14 +69,48 @@ class PatternRegistry:
         for inst in instances:
             self._patterns[inst.pattern_id] = inst
 
+    def _register_volume_orderflow_families(self):
+        volume_instances = [
+            # 41 - 50: Volume & CVD
+            p.RelativeVolumeExpansionPattern(),
+            p.LargeVolumeBubblePattern(),
+            p.VolumeClimaxReversalPattern(),
+            p.VolumeBreakoutPattern(),
+            p.CVDDivergencePattern(),
+            p.CVDReversalPattern(),
+            p.CVDTrendContinuationPattern(),
+            p.BullishAbsorptionPattern(),
+            p.BearishAbsorptionPattern(),
+            p.DeltaExhaustionPattern(),
+            # 51 - 56: Footprint & Volume Profile
+            p.BidAskImbalancePattern(),
+            p.StackedImbalancePattern(),
+            p.POCReclaimPattern(),
+            p.VAHRejectionPattern(),
+            p.VALRejectionPattern(),
+            p.HVNLVNReactionPattern(),
+        ]
+        for inst in volume_instances:
+            self._patterns[inst.pattern_id] = inst
+
+    def register_volume_orderflow_families(self):
+        """Public method to enable and register volume and order flow strategies (41 - 56)."""
+        self._register_volume_orderflow_families()
+
     def get_pattern(self, pattern_id: int) -> Optional[BasePattern]:
         return self._patterns.get(pattern_id)
 
     def get_all_patterns(self) -> List[BasePattern]:
         return [self._patterns[pid] for pid in sorted(self._patterns.keys())]
 
+    def get_price_action_patterns(self) -> List[BasePattern]:
+        return [self._patterns[pid] for pid in sorted(self._patterns.keys()) if pid <= 40]
+
+    def get_volume_patterns(self) -> List[BasePattern]:
+        return [self._patterns[pid] for pid in sorted(self._patterns.keys()) if pid > 40]
+
     def evaluate_all(self, buffer: MarketBuffer, enable_ticks: bool = False) -> List[EntrySignal]:
-        """Evaluates all 40 candle-based patterns against the active M1/M5 timeframe."""
+        """Evaluates all registered patterns against the active M1/M5/M15 timeframe."""
         fired_signals: List[EntrySignal] = []
         now_ms = buffer.current_time_ms
         for pid in sorted(self._patterns.keys()):
@@ -100,5 +140,5 @@ class PatternRegistry:
         return fired_signals
 
     def get_matrix_status(self) -> List[Dict]:
-        """Returns snapshot of current status for all 40 patterns for UI rendering."""
+        """Returns snapshot of current status for all registered patterns for UI rendering."""
         return [self._patterns[pid].get_info() for pid in sorted(self._patterns.keys())]

@@ -60,7 +60,8 @@ class EntryStrategyService:
             default_timeframe=self.active_timeframe,
         )
         self.buffer.set_enable_ticks(False)
-        self.registry = PatternRegistry()
+        inc_vol = getattr(self.config, "enable_volume_strategies", False)
+        self.registry = PatternRegistry(include_volume_strategies=inc_vol)
         
         self.recent_signals: deque = deque(maxlen=100)
         self.latest_signals_by_pattern: Dict[int, EntrySignal] = {}

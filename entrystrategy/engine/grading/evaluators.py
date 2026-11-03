@@ -5,6 +5,13 @@ from entrystrategy.core.buffer import MarketBuffer
 from entrystrategy.engine.grading.models import ComponentBreakdown, EvidenceCluster, EvidenceItem
 from entrystrategy.engine.grading.base import BaseStrategyEvaluator
 from entrystrategy.engine.grading.thresholds import get_timeframe_profile, calculate_atr
+from entrystrategy.engine.volume_analytics import (
+    calculate_rvol_and_zscore,
+    calculate_volume_profile,
+    calculate_footprint_imbalance,
+    estimate_candle_delta,
+)
+
 
 
 # =====================================================================
@@ -856,6 +863,350 @@ class GeometryPatternEvaluator(BaseStrategyEvaluator):
 
 
 # =====================================================================
+
+# =====================================================================
+# 8. VOLUME & ORDER FLOW STRATEGY EVALUATORS (Pola 41 - 56)
+# =====================================================================
+
+class VolumeExpansionEvaluator(BaseStrategyEvaluator):
+    """Evaluates Volume Expansion Strategies:
+    #41: Relative Volume Expansion
+    #42: Large Volume Bubble
+    #44: Volume Breakout
+    """
+
+    def evaluate(
+        self, signal: EntrySignal, buffer: MarketBuffer, timeframe: str
+    ) -> Tuple[ComponentBreakdown, List[str], List[str], float, bool]:
+        candles = self.get_closed_candles(buffer, timeframe, count=25)
+        reasons: List[str] = []
+        penalties: List[str] = []
+        has_critical = False
+
+        if len(candles) < 5:
+            penalties.append("Data candle terbatas untuk evaluasi volume expansion")
+            return ComponentBreakdown(40, 40, 40, 40, 60), reasons, penalties, 0.40, False
+
+        c0 = candles[0]
+        c_rng = max(0.01, c0.range)
+        body_ratio = c0.body / c_rng
+
+        rvol = signal.metrics.get("rvol", 0.0) if signal.metrics else 0.0
+        zscore = signal.metrics.get("zscore", 0.0) if signal.metrics else 0.0
+        if rvol == 0.0 and len(candles) >= 20:
+            v_info = calculate_rvol_and_zscore(candles, 20)
+            rvol = v_info["rvol"]
+            zscore = v_info["zscore"]
+
+        pq = 70.0
+        if self.pattern_id == 41:  # RVOL Expansion
+            if rvol >= 2.5:
+                pq += 20.0
+                reasons.append(f"[OBSERVED_TICK_VOLUME] Ekspansi volume masif (RVOL {rvol:.2f}x)")
+            elif rvol >= 1.8:
+                pq += 10.0
+                reasons.append(f"[OBSERVED_TICK_VOLUME] Ekspansi volume sehat (RVOL {rvol:.2f}x)")
+            else:
+                pq -= 15.0
+                penalties.append(f"Volume relatif kurang memadai ({rvol:.2f}x)")
+
+            if body_ratio >= 0.70:
+                pq += 10.0
+                reasons.append(f"Dominasi body impulsif ({body_ratio * 100:.0f}%)")
+        elif self.pattern_id == 42:  # Large Volume Bubble
+            if zscore >= 3.0:
+                pq += 25.0
+                reasons.append(f"[OBSERVED_TICK_VOLUME] Anomali bubble ekstrim (Z-Score {zscore:.2f})")
+            elif zscore >= 2.0:
+                pq += 12.0
+                reasons.append(f"[OBSERVED_TICK_VOLUME] Volume bubble terdeteksi (Z-Score {zscore:.2f})")
+            else:
+                pq -= 15.0
+                penalties.append(f"Z-score volume di bawah ambang bubble ({zscore:.2f})")
+        elif self.pattern_id == 44:  # Volume Breakout
+            if rvol >= 2.0 and body_ratio >= 0.60:
+                pq += 20.0
+                reasons.append(f"[OBSERVED_TICK_VOLUME] Breakout didukung volume tinggi ({rvol:.2f}x) dan body solid")
+            else:
+                pq += 8.0
+                reasons.append("[OBSERVED_TICK_VOLUME] Breakout dengan partisipasi volume")
+
+        ms_score, ms_r, ms_p, ms_crit = self.assess_market_structure(candles, signal.direction)
+        mtf_score, mtf_r, mtf_p = self.evaluate_mtf_confluence(buffer, timeframe, signal.direction)
+        ms = (ms_score * 0.7) + (mtf_score * 0.3)
+        reasons.extend(ms_r + mtf_r)
+        penalties.extend(ms_p + mtf_p)
+        if ms_crit:
+            has_critical = True
+
+        lq, lq_r, lq_p = self.assess_location_quality(candles, signal.direction, signal.trigger_price)
+        reasons.extend(lq_r)
+        penalties.extend(lq_p)
+
+        cc, cc_r, cc_p = self.assess_candle_confirmation(candles, signal.direction)
+        reasons.extend(cc_r)
+        penalties.extend(cc_p)
+
+        eq, eq_r, eq_p = self.assess_execution_quality(signal, buffer, timeframe)
+        reasons.extend(eq_r)
+        penalties.extend(eq_p)
+
+        confidence = 0.95 if len(candles) >= 15 else 0.70
+        breakdown = ComponentBreakdown(pq, ms, lq, cc, eq)
+        return breakdown, reasons, penalties, confidence, has_critical
+
+
+class VolumeClimaxEvaluator(BaseStrategyEvaluator):
+    """Evaluates Strategy #43: Volume Climax Reversal."""
+
+    def evaluate(
+        self, signal: EntrySignal, buffer: MarketBuffer, timeframe: str
+    ) -> Tuple[ComponentBreakdown, List[str], List[str], float, bool]:
+        candles = self.get_closed_candles(buffer, timeframe, count=25)
+        reasons: List[str] = []
+        penalties: List[str] = []
+        has_critical = False
+
+        if len(candles) < 5:
+            penalties.append("Data candle terbatas untuk evaluasi climax reversal")
+            return ComponentBreakdown(40, 40, 40, 40, 60), reasons, penalties, 0.40, False
+
+        c0 = candles[0]
+        c_rng = max(0.01, c0.range)
+        is_buy = signal.direction == SignalDirection.BUY
+        rvol = signal.metrics.get("rvol", 0.0) if signal.metrics else 0.0
+        if rvol == 0.0 and len(candles) >= 20:
+            v_info = calculate_rvol_and_zscore(candles, 20)
+            rvol = v_info["rvol"]
+
+        pq = 72.0
+        if rvol >= 3.0:
+            pq += 18.0
+            reasons.append(f"[OBSERVED_TICK_VOLUME] Volume ultra-tinggi ({rvol:.2f}x) menandakan blow-off climax")
+        elif rvol >= 2.0:
+            pq += 10.0
+            reasons.append(f"[OBSERVED_TICK_VOLUME] Volume signifikan ({rvol:.2f}x) pada candle pembalikan")
+        else:
+            pq -= 15.0
+            penalties.append("Volume relatif kurang memadai untuk klimaks sejati")
+
+        exhaustion_wick = c0.lower_wick if is_buy else c0.upper_wick
+        wick_ratio = exhaustion_wick / c_rng
+        if wick_ratio >= 0.50:
+            pq += 15.0
+            reasons.append(f"Exhaustion wick panjang ({wick_ratio * 100:.0f}%) menunjukkan penolakan harga masif")
+        elif wick_ratio < 0.30:
+            pq -= 12.0
+            penalties.append("Wick penolakan terlalu pendek untuk climax reversal")
+
+        ms_score, ms_r, ms_p, ms_crit = self.assess_market_structure(candles, signal.direction)
+        lq, lq_r, lq_p = self.assess_location_quality(candles, signal.direction, signal.trigger_price)
+        cc, cc_r, cc_p = self.assess_candle_confirmation(candles, signal.direction)
+        eq, eq_r, eq_p = self.assess_execution_quality(signal, buffer, timeframe)
+
+        reasons.extend(ms_r + lq_r + cc_r + eq_r)
+        penalties.extend(ms_p + lq_p + cc_p + eq_p)
+
+        confidence = 0.95 if len(candles) >= 15 else 0.70
+        breakdown = ComponentBreakdown(pq, ms_score, lq, cc, eq)
+        return breakdown, reasons, penalties, confidence, ms_crit
+
+
+class CumulativeDeltaEvaluator(BaseStrategyEvaluator):
+    """Evaluates CVD & Delta Strategies:
+    #45: CVD Divergence
+    #46: CVD Reversal
+    #47: CVD Trend Continuation
+    #50: Delta Exhaustion
+    """
+
+    def evaluate(
+        self, signal: EntrySignal, buffer: MarketBuffer, timeframe: str
+    ) -> Tuple[ComponentBreakdown, List[str], List[str], float, bool]:
+        candles = self.get_closed_candles(buffer, timeframe, count=25)
+        reasons: List[str] = []
+        penalties: List[str] = []
+        has_critical = False
+
+        if len(candles) < 5:
+            penalties.append("Data candle terbatas untuk evaluasi CVD delta")
+            return ComponentBreakdown(40, 40, 40, 40, 60), reasons, penalties, 0.40, False
+
+        pq = 72.0
+        if self.pattern_id == 45:  # CVD Divergence
+            pq += 18.0
+            reasons.append("[ESTIMATED_DELTA_PROXY] Divergensi CVD terdeteksi: arah akumulasi delta bertolak belakang dengan harga")
+            div_type = signal.metrics.get("divergence", "") if signal.metrics else ""
+            if div_type:
+                pq += 5.0
+                reasons.append(f"Tipe divergensi terkonfirmasi: {div_type}")
+        elif self.pattern_id == 46:  # CVD Reversal
+            pq += 15.0
+            reasons.append("[ESTIMATED_DELTA_PROXY] Perubahan tajam pada tanda delta candle mengindikasikan rotasi aliran pesanan")
+        elif self.pattern_id == 47:  # CVD Continuation
+            pq += 16.0
+            reasons.append("[ESTIMATED_DELTA_PROXY] Aliran CVD searah tren harga mengonfirmasi kelanjutan momentum")
+        elif self.pattern_id == 50:  # Delta Exhaustion
+            pq += 18.0
+            reasons.append("[ESTIMATED_DELTA_PROXY] Delta exhaustion: volume agresif gagal mendorong harga lebih jauh (penyerapan pasif)")
+
+        ms_score, ms_r, ms_p, ms_crit = self.assess_market_structure(candles, signal.direction)
+        lq, lq_r, lq_p = self.assess_location_quality(candles, signal.direction, signal.trigger_price)
+        cc, cc_r, cc_p = self.assess_candle_confirmation(candles, signal.direction)
+        eq, eq_r, eq_p = self.assess_execution_quality(signal, buffer, timeframe)
+
+        reasons.extend(ms_r + lq_r + cc_r + eq_r)
+        penalties.extend(ms_p + lq_p + cc_p + eq_p)
+
+        confidence = 0.90 if len(candles) >= 15 else 0.70
+        breakdown = ComponentBreakdown(pq, ms_score, lq, cc, eq)
+        return breakdown, reasons, penalties, confidence, ms_crit
+
+
+class VolumeAbsorptionEvaluator(BaseStrategyEvaluator):
+    """Evaluates Absorption Strategies:
+    #48: Bullish Absorption
+    #49: Bearish Absorption
+    """
+
+    def evaluate(
+        self, signal: EntrySignal, buffer: MarketBuffer, timeframe: str
+    ) -> Tuple[ComponentBreakdown, List[str], List[str], float, bool]:
+        candles = self.get_closed_candles(buffer, timeframe, count=25)
+        reasons: List[str] = []
+        penalties: List[str] = []
+        has_critical = False
+
+        if len(candles) < 5:
+            penalties.append("Data candle terbatas untuk evaluasi penyerapan volume")
+            return ComponentBreakdown(40, 40, 40, 40, 60), reasons, penalties, 0.40, False
+
+        c0 = candles[0]
+        c_rng = max(0.01, c0.range)
+        pq = 72.0
+
+        if self.pattern_id == 48:  # Bullish Absorption
+            wick_ratio = c0.lower_wick / c_rng
+            if wick_ratio >= 0.45:
+                pq += 18.0
+                reasons.append(f"[PROXY_ABSORPTION] Penyerapan agresif seller di level bawah (wick {wick_ratio * 100:.0f}%)")
+            else:
+                pq += 8.0
+                reasons.append("[PROXY_ABSORPTION] Penyerapan volume bawah terdeteksi")
+            reasons.append("[ESTIMATED_DELTA_PROXY] Buyer pasif menyerap likuiditas jual pada harga rendah")
+        elif self.pattern_id == 49:  # Bearish Absorption
+            wick_ratio = c0.upper_wick / c_rng
+            if wick_ratio >= 0.45:
+                pq += 18.0
+                reasons.append(f"[PROXY_ABSORPTION] Penyerapan agresif buyer di level atas (wick {wick_ratio * 100:.0f}%)")
+            else:
+                pq += 8.0
+                reasons.append("[PROXY_ABSORPTION] Penyerapan volume atas terdeteksi")
+            reasons.append("[ESTIMATED_DELTA_PROXY] Seller pasif menyerap likuiditas beli pada harga tinggi")
+
+        ms_score, ms_r, ms_p, ms_crit = self.assess_market_structure(candles, signal.direction)
+        lq, lq_r, lq_p = self.assess_location_quality(candles, signal.direction, signal.trigger_price)
+        cc, cc_r, cc_p = self.assess_candle_confirmation(candles, signal.direction)
+        eq, eq_r, eq_p = self.assess_execution_quality(signal, buffer, timeframe)
+
+        reasons.extend(ms_r + lq_r + cc_r + eq_r)
+        penalties.extend(ms_p + lq_p + cc_p + eq_p)
+
+        confidence = 0.90 if len(candles) >= 15 else 0.70
+        breakdown = ComponentBreakdown(pq, ms_score, lq, cc, eq)
+        return breakdown, reasons, penalties, confidence, ms_crit
+
+
+class FootprintImbalanceEvaluator(BaseStrategyEvaluator):
+    """Evaluates Micro-Price Footprint Strategies:
+    #51: Bid/Ask Imbalance
+    #52: Stacked Imbalance
+    """
+
+    def evaluate(
+        self, signal: EntrySignal, buffer: MarketBuffer, timeframe: str
+    ) -> Tuple[ComponentBreakdown, List[str], List[str], float, bool]:
+        candles = self.get_closed_candles(buffer, timeframe, count=25)
+        reasons: List[str] = []
+        penalties: List[str] = []
+        has_critical = False
+
+        if len(candles) < 5:
+            penalties.append("Data candle terbatas untuk evaluasi footprint imbalance")
+            return ComponentBreakdown(40, 40, 40, 40, 60), reasons, penalties, 0.40, False
+
+        pq = 72.0
+        if self.pattern_id == 51:  # Bid/Ask Imbalance
+            pq += 15.0
+            reasons.append("[PROXY_PRICE_LEVEL_FOOTPRINT] Ketidakseimbangan bid/ask signifikan terdeteksi pada dekomposisi mikro intra-bar")
+        elif self.pattern_id == 52:  # Stacked Imbalance
+            stacked = signal.metrics.get("stacked_levels", 3) if signal.metrics else 3
+            if stacked >= 4:
+                pq += 22.0
+                reasons.append(f"[PROXY_PRICE_LEVEL_FOOTPRINT] Stacked imbalance kuat ({stacked} level berurutan) menunjukkan inisiatif institusi")
+            else:
+                pq += 15.0
+                reasons.append(f"[PROXY_PRICE_LEVEL_FOOTPRINT] Stacked imbalance terkonfirmasi pada {stacked} level harga berurutan")
+
+        ms_score, ms_r, ms_p, ms_crit = self.assess_market_structure(candles, signal.direction)
+        lq, lq_r, lq_p = self.assess_location_quality(candles, signal.direction, signal.trigger_price)
+        cc, cc_r, cc_p = self.assess_candle_confirmation(candles, signal.direction)
+        eq, eq_r, eq_p = self.assess_execution_quality(signal, buffer, timeframe)
+
+        reasons.extend(ms_r + lq_r + cc_r + eq_r)
+        penalties.extend(ms_p + lq_p + cc_p + eq_p)
+
+        confidence = 0.90 if len(candles) >= 15 else 0.70
+        breakdown = ComponentBreakdown(pq, ms_score, lq, cc, eq)
+        return breakdown, reasons, penalties, confidence, ms_crit
+
+
+class VolumeProfileEvaluator(BaseStrategyEvaluator):
+    """Evaluates Volume Profile Strategies:
+    #53: POC Reclaim
+    #54: VAH Rejection
+    #55: VAL Rejection
+    #56: HVN/LVN Reaction
+    """
+
+    def evaluate(
+        self, signal: EntrySignal, buffer: MarketBuffer, timeframe: str
+    ) -> Tuple[ComponentBreakdown, List[str], List[str], float, bool]:
+        candles = self.get_closed_candles(buffer, timeframe, count=25)
+        reasons: List[str] = []
+        penalties: List[str] = []
+        has_critical = False
+
+        if len(candles) < 5:
+            penalties.append("Data candle terbatas untuk evaluasi volume profile")
+            return ComponentBreakdown(40, 40, 40, 40, 60), reasons, penalties, 0.40, False
+
+        pq = 72.0
+        if self.pattern_id == 53:  # POC Reclaim
+            pq += 18.0
+            reasons.append("[OBSERVED_TICK_VOLUME] POC Reclaim: harga berhasil merebut kembali Point of Control profil volume")
+        elif self.pattern_id == 54:  # VAH Rejection
+            pq += 18.0
+            reasons.append("[OBSERVED_TICK_VOLUME] VAH Rejection: penolakan harga pada Value Area High mengonfirmasi zona rotasi ke bawah")
+        elif self.pattern_id == 55:  # VAL Rejection
+            pq += 18.0
+            reasons.append("[OBSERVED_TICK_VOLUME] VAL Rejection: penolakan harga pada Value Area Low mengonfirmasi zona rotasi ke atas")
+        elif self.pattern_id == 56:  # HVN/LVN Reaction
+            pq += 16.0
+            reasons.append("[OBSERVED_TICK_VOLUME] Reaksi node volume: transisi cepat melalui LVN atau pantulan pada HVN node")
+
+        ms_score, ms_r, ms_p, ms_crit = self.assess_market_structure(candles, signal.direction)
+        lq, lq_r, lq_p = self.assess_location_quality(candles, signal.direction, signal.trigger_price)
+        cc, cc_r, cc_p = self.assess_candle_confirmation(candles, signal.direction)
+        eq, eq_r, eq_p = self.assess_execution_quality(signal, buffer, timeframe)
+
+        reasons.extend(ms_r + lq_r + cc_r + eq_r)
+        penalties.extend(ms_p + lq_p + cc_p + eq_p)
+
+        confidence = 0.95 if len(candles) >= 15 else 0.70
+        breakdown = ComponentBreakdown(pq, ms_score, lq, cc, eq)
+        return breakdown, reasons, penalties, confidence, ms_crit
+
 # FACTORY & REGISTRY FOR ALL 40 EVALUATORS
 # =====================================================================
 
@@ -904,6 +1255,24 @@ EVALUATOR_MAPPING: Dict[int, Type[BaseStrategyEvaluator]] = {
     38: CandleSequenceEvaluator,         # Staircase Pattern
     39: CandleSequenceEvaluator,         # Candle Sequence
     40: CandlestickPatternEvaluator,     # Candle Rejection Confluence
+    # 41 - 50: Volume & CVD
+    41: VolumeExpansionEvaluator,        # Relative Volume Expansion
+    42: VolumeExpansionEvaluator,        # Large Volume Bubble
+    43: VolumeClimaxEvaluator,           # Volume Climax Reversal
+    44: VolumeExpansionEvaluator,        # Volume Breakout
+    45: CumulativeDeltaEvaluator,        # CVD Divergence
+    46: CumulativeDeltaEvaluator,        # CVD Reversal
+    47: CumulativeDeltaEvaluator,        # CVD Trend Continuation
+    48: VolumeAbsorptionEvaluator,       # Bullish Absorption
+    49: VolumeAbsorptionEvaluator,       # Bearish Absorption
+    50: CumulativeDeltaEvaluator,        # Delta Exhaustion
+    # 51 - 56: Footprint & Volume Profile
+    51: FootprintImbalanceEvaluator,     # Bid/Ask Imbalance
+    52: FootprintImbalanceEvaluator,     # Stacked Imbalance
+    53: VolumeProfileEvaluator,          # POC Reclaim
+    54: VolumeProfileEvaluator,          # VAH Rejection
+    55: VolumeProfileEvaluator,          # VAL Rejection
+    56: VolumeProfileEvaluator,          # HVN/LVN Reaction
 }
 
 
