@@ -82,8 +82,41 @@ class MarketBuffer:
 
     @property
     def latest_tick(self) -> Optional[TickData]:
+        """Returns the latest tick for pattern evaluations ONLY when tick mode is enabled."""
+        if not self.enable_ticks:
+            return None
         with self._lock:
             return self._ticks[-1] if self._ticks else None
+
+    @property
+    def latest_quote_tick(self) -> Optional[TickData]:
+        """Always returns the most recent tick for price/spread quoting regardless of pattern mode."""
+        with self._lock:
+            return self._ticks[-1] if self._ticks else None
+
+    @property
+    def current_spread(self) -> float:
+        """Returns current market spread in points."""
+        with self._lock:
+            if self._ticks:
+                return self._ticks[-1].spread
+            if self._candles:
+                return self._candles[-1].spread or 0.25
+            return 0.25
+
+    def get_execution_price(self, direction: Any, ref_close: float) -> float:
+        """Calculates estimated execution price: Ask for BUY, Bid for SELL.
+        In candle-only mode (where Dukascopy bars are Bid), BUY = ref_close + spread, SELL = ref_close.
+        """
+        dir_upper = str(direction).upper()
+        is_buy = "BUY" in dir_upper
+        if self.enable_ticks and self._ticks:
+            t = self._ticks[-1]
+            return round(t.ask if is_buy else t.bid, 2)
+        spread = self.current_spread
+        if is_buy:
+            return round(ref_close + spread, 2)
+        return round(ref_close, 2)
 
     @property
     def total_ticks(self) -> int:

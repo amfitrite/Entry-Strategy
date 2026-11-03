@@ -1,12 +1,14 @@
-"""Tests for Dukascopy Bank Live Feed & Historical Warm-up."""
+"""Tests for Dukascopy Bank Live Feed, Cursor Isolation, Candle Completion, and Execution Price."""
 import time
 from datetime import datetime, timezone, timedelta
 from unittest.mock import MagicMock, patch
 
-from entrystrategy.core.models import Candle, TickData, SignalStatus
+from entrystrategy.core.models import Candle, TickData, SignalStatus, SignalDirection
+from entrystrategy.core.buffer import MarketBuffer
 from entrystrategy.data.dukascopy_feed import DukascopyFeed, DUKASCOPY_AVAILABLE
 from entrystrategy.service import EntryStrategyService
 from entrystrategy.config import AppConfig
+from entrystrategy.engine.registry import PatternRegistry
 
 
 def test_dukascopy_feed_init():
@@ -21,77 +23,128 @@ def test_dukascopy_feed_init():
     assert feed.warmup_candles == 50
     assert feed.poll_interval_s == 1.0
     assert feed.is_connected is False
+    assert isinstance(feed.last_candle_timestamp, dict)
+    assert feed.last_candle_timestamp["M1"] is None
+    assert feed.last_candle_timestamp["M5"] is None
 
 
-def test_dukascopy_feed_tick_callback_dispatch():
-    received_ticks = []
+def test_dukascopy_feed_dual_cursor_m1_m5_isolation():
+    """Verify M1 and M5 candle cursors are strictly isolated and do not overwrite each other."""
+    feed = DukascopyFeed(symbol="XAUUSD", timeframe="M5")
+    
+    t_m5 = datetime(2026, 11, 3, 1, 40, tzinfo=timezone.utc)
+    t_m1 = datetime(2026, 11, 3, 1, 47, tzinfo=timezone.utc)
+    
+    feed.last_candle_timestamp["M5"] = t_m5
+    feed.last_candle_timestamp["M1"] = t_m1
 
-    def on_tick_cb(tick: TickData, is_history: bool = False):
-        received_ticks.append((tick, is_history))
+    assert feed.last_candle_timestamp["M5"] == t_m5
+    assert feed.last_candle_timestamp["M1"] == t_m1
+    assert feed.last_candle_timestamp["M5"] < feed.last_candle_timestamp["M1"]
 
-    feed = DukascopyFeed(
-        symbol="XAUUSD",
-        timeframe="M5",
-        on_tick=on_tick_cb,
-    )
 
+def test_dukascopy_feed_filters_unclosed_candles():
+    """Verify that ongoing/unclosed candles are NOT accepted as completed bars."""
+    feed = DukascopyFeed(symbol="XAUUSD", timeframe="M5")
+    now = datetime(2026, 11, 3, 1, 48, 30, tzinfo=timezone.utc)
+
+    # 1. Candle starting at 01:40 -> ends at 01:45 (closed, because 01:45 <= 01:48:30)
+    c_closed = MagicMock()
+    c_closed.timestamp = datetime(2026, 11, 3, 1, 40, tzinfo=timezone.utc)
+    c_closed.open = 3950.0
+    c_closed.high = 3955.0
+    c_closed.low = 3949.0
+    c_closed.close = 3954.0
+    c_closed.volume = 100.0
+
+    # 2. Candle starting at 01:45 -> ends at 01:50 (UNCLOSED, because 01:50 > 01:48:30)
+    c_unclosed = MagicMock()
+    c_unclosed.timestamp = datetime(2026, 11, 3, 1, 45, tzinfo=timezone.utc)
+    c_unclosed.open = 3954.0
+    c_unclosed.high = 3958.0
+    c_unclosed.low = 3953.0
+    c_unclosed.close = 3957.0
+    c_unclosed.volume = 40.0
+
+    with patch("entrystrategy.data.dukascopy_feed.duka.fetch_candles", return_value=[c_closed, c_unclosed]):
+        with patch("entrystrategy.data.dukascopy_feed.datetime") as mock_dt:
+            mock_dt.now.return_value = now
+            mock_dt.side_effect = lambda *args, **kw: datetime(*args, **kw)
+            
+            bars = feed.fetch_warmup_candles(timeframe="M5", count=10)
+            
+            # Only the closed candle (01:40) should be returned!
+            assert len(bars) == 1
+            assert bars[0].timestamp == c_closed.timestamp
+            assert bars[0].is_closed is True
+            assert feed.last_candle_timestamp["M5"] == c_closed.timestamp
+
+
+def test_market_buffer_strictly_blocks_latest_tick_when_ticks_disabled():
+    """Verify MarketBuffer.latest_tick returns None when enable_ticks=False, preventing tick-bleed."""
+    buf = MarketBuffer(enable_ticks=False)
     now = datetime.now(timezone.utc)
     ts_ms = int(now.timestamp() * 1000)
-    fake_tick = TickData(
-        ts_ms=ts_ms,
-        bid=3950.25,
-        ask=3950.55,
-        last=3950.40,
-        volume=1.0,
-        flags=6,
-        symbol="XAUUSD"
-    )
+    
+    tick = TickData(ts_ms=ts_ms, bid=3950.0, ask=3950.30, symbol="XAUUSD")
+    buf.add_tick(tick)
 
-    if feed.on_tick:
-        feed.on_tick(fake_tick, False)
+    # When enable_ticks is False:
+    assert buf.latest_tick is None
+    assert buf.get_recent_ticks() == []
+    # But quote tick is preserved for telemetry/spread
+    assert buf.latest_quote_tick is not None
+    assert buf.latest_quote_tick.bid == 3950.0
+    assert round(buf.current_spread, 2) == 0.30
 
-    assert len(received_ticks) == 1
-    t, is_hist = received_ticks[0]
-    assert t.symbol == "XAUUSD"
-    assert t.bid == 3950.25
-    assert t.ask == 3950.55
-    assert round(t.spread, 2) == 0.30
-    assert is_hist is False
+    # When enable_ticks is True:
+    buf.set_enable_ticks(True)
+    assert buf.latest_tick is not None
+    assert buf.latest_tick.bid == 3950.0
+    assert len(buf.get_recent_ticks()) == 1
 
 
-def test_dukascopy_feed_bar_completed_callback():
-    received_bars = []
-
-    def on_bar_cb(candle: Candle, is_history: bool = False):
-        received_bars.append((candle, is_history))
-
-    feed = DukascopyFeed(
-        symbol="XAUUSD",
-        timeframe="M5",
-        on_bar_completed=on_bar_cb,
-    )
-
+def test_execution_price_bid_ask_spread_calculation():
+    """Verify BUY signals estimate execution at Ask and SELL at Bid."""
+    buf = MarketBuffer(enable_ticks=False)
     now = datetime.now(timezone.utc)
-    bar = Candle(
-        timestamp=now,
-        open=3948.0,
-        high=3955.0,
-        low=3947.5,
-        close=3953.2,
-        tick_volume=120.0,
-        symbol="XAUUSD",
-        timeframe="M5",
-        is_closed=True,
-    )
+    
+    # Tick with spread 0.30 (Bid 3950.0, Ask 3950.30)
+    buf.add_tick(TickData(ts_ms=1000, bid=3950.0, ask=3950.30, symbol="XAUUSD"))
+    
+    ref_close = 3952.00
+    exec_buy = buf.get_execution_price(SignalDirection.BUY, ref_close)
+    exec_sell = buf.get_execution_price(SignalDirection.SELL, ref_close)
 
-    if feed.on_bar_completed:
-        feed.on_bar_completed(bar, False)
+    assert exec_buy == round(3952.00 + 0.30, 2)
+    assert exec_sell == 3952.00
 
-    assert len(received_bars) == 1
-    c, is_hist = received_bars[0]
-    assert c.timeframe == "M5"
-    assert c.close == 3953.2
-    assert is_hist is False
+
+def test_patterns_pure_candle_evaluation_in_candle_only_mode():
+    """Verify Breakout (#7), Swing Break (#33), Double Top (#31), and Three-Push (#35)
+    strictly evaluate on candle closes without executing tick branch when enable_ticks=False.
+    """
+    buf = MarketBuffer(enable_ticks=False, active_timeframe="M5")
+    # Even if ticks are pushed into buffer
+    now = datetime.now(timezone.utc)
+    buf.add_tick(TickData(ts_ms=1000, bid=3960.0, ask=3960.30, symbol="XAUUSD"))
+
+    registry = PatternRegistry()
+
+    # Pattern 7: Breakout
+    p7 = registry.get_pattern(7)
+    c1 = Candle(timestamp=now - timedelta(minutes=10), open=3940.0, high=3945.0, low=3939.0, close=3944.0, timeframe="M5")
+    c0 = Candle(timestamp=now - timedelta(minutes=5), open=3944.0, high=3949.0, low=3943.5, close=3948.5, timeframe="M5")
+    buf.add_completed_candle(c1)
+    buf.add_completed_candle(c0)
+
+    sig7 = p7.evaluate(buf)
+    assert sig7 is not None
+    assert sig7.direction == SignalDirection.BUY
+    # Trigger price is the candle close, not the tick price (3960.0)
+    assert sig7.trigger_price == 3948.5
+    assert sig7.timestamp_ms == int(c0.timestamp.timestamp() * 1000)
+    assert "Breakout High Candle C[1] M5" in sig7.reasons[0]
 
 
 def test_dukascopy_service_integration():
@@ -102,7 +155,7 @@ def test_dukascopy_service_integration():
         enable_ticks=False,
         enable_simulation=False,
     )
-    svc = EntryStrategyService(config=config, start_servers=False)
+    svc = EntryStrategyService(config, start_servers=False)
     
     state = svc.get_matrix_state()
     assert "feed" in state
@@ -131,7 +184,7 @@ def test_dukascopy_service_integration():
 def test_dukascopy_live_timeframe_switch():
     """Verify switching timeframe updates both service and Dukascopy feed."""
     config = AppConfig(symbol="XAUUSD", timeframe="M5", enable_ticks=False, enable_simulation=False)
-    svc = EntryStrategyService(config=config, start_servers=False)
+    svc = EntryStrategyService(config, start_servers=False)
     
     res = svc.set_timeframe("M1")
     assert res["success"] is True

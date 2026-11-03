@@ -96,9 +96,10 @@ class EntrySignal:
     family_name: str
     direction: SignalDirection
     reference_price: float              # Level referensi/anchor pola (misal: Mother Bar High, Level Reversal)
-    trigger_price: float                # Harga aktual saat trigger tereksekusi (Bid/Ask)
+    trigger_price: float                # Level harga pemicu teknis pola (Bid candle close / breakout point)
     timestamp_ms: int                   # Timestamp milidetik saat trigger terjadi
     invalidation_price: Optional[float] = None # Level di mana premis pola ini batal
+    execution_price: Optional[float] = None   # Perkiraan harga eksekusi riil (Ask untuk BUY, Bid untuk SELL)
     pattern_role: PatternRole = PatternRole.ENTRY
     phenomenon: str = ""                # Deskripsi fenomena pergerakan harga yang diukur
     reasons: List[str] = field(default_factory=list)
@@ -118,8 +119,10 @@ class EntrySignal:
     expired_time_ms: Optional[int] = None
 
     def __post_init__(self):
+        if self.execution_price is None:
+            self.execution_price = self.trigger_price
         if self.price is None:
-            self.price = self.trigger_price
+            self.price = self.execution_price
         elif self.trigger_price == 0.0 and self.price > 0.0:
             self.trigger_price = self.price
 
@@ -219,6 +222,7 @@ class EntrySignal:
             "direction": self.direction.value,
             "reference_price": round(self.reference_price, 2),
             "trigger_price": round(self.trigger_price, 2),
+            "execution_price": round(self.execution_price, 2) if self.execution_price is not None else round(self.trigger_price, 2),
             "price": round(self.trigger_price, 2),
             "invalidation_price": round(self.invalidation_price, 2) if self.invalidation_price is not None else None,
             "pattern_role": self.pattern_role.value,

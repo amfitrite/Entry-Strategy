@@ -47,7 +47,10 @@ class DukascopyFeed:
         self.is_connected = False
         self.status_message = "Initializing Dukascopy ECN Feed..."
         self.last_tick_time: Optional[datetime] = None
-        self.last_candle_timestamp: Optional[datetime] = None
+        self.last_candle_timestamp: Dict[str, Optional[datetime]] = {
+            "M1": None,
+            "M5": None,
+        }
         self.last_price: float = 0.0
         self.last_spread: float = 0.0
         self.total_ticks_received: int = 0
@@ -122,6 +125,11 @@ class DukascopyFeed:
             
             parsed: List[Candle] = []
             for c in raw_candles:
+                # STRICT CHECK: Only truly closed candles whose duration has completely elapsed
+                candle_end = c.timestamp + timedelta(minutes=interval_min)
+                if candle_end > now:
+                    continue
+
                 c_obj = Candle(
                     timestamp=c.timestamp,
                     open=float(c.open),
@@ -141,10 +149,10 @@ class DukascopyFeed:
 
             with self._lock:
                 if parsed:
-                    self.last_candle_timestamp = parsed[-1].timestamp
+                    self.last_candle_timestamp[tf] = parsed[-1].timestamp
                     self.last_price = parsed[-1].close
 
-            logger.info(f"Successfully loaded {len(parsed)} {tf} warmup candles from Dukascopy.")
+            logger.info(f"Successfully loaded {len(parsed)} {tf} closed warmup candles from Dukascopy.")
             return parsed
 
         except Exception as e:
@@ -152,15 +160,13 @@ class DukascopyFeed:
             self._notify_status(False, f"Warmup fetch error: {e}")
             return []
 
-    def set_timeframe(self, new_tf: str) -> List[Candle]:
+    def set_timeframe(self, new_tf: str):
         """Switches active timeframe for live stream aggregation."""
         clean_tf = new_tf.upper()
         if clean_tf not in ("M1", "M5"):
-            return []
+            return
         with self._lock:
             self.timeframe = clean_tf
-            self.last_candle_timestamp = None
-        return []
 
     def _run_feed_loop(self):
         """Continuous live ingestor loop fetching ticks and completed bars."""
@@ -265,35 +271,46 @@ class DukascopyFeed:
             time.sleep(sleep_time)
 
     def _sync_latest_candle(self, now: datetime):
-        """Checks for official closed candle on Dukascopy and dispatches it if fresh."""
+        """Checks for official closed candle on Dukascopy and dispatches it if fresh with isolated cursors."""
         try:
-            interval_min = 5 if self.timeframe == "M5" else 1
-            recent = list(duka.fetch_candles(
-                instrument=I_XAU_USD,
-                interval=interval_min,
-                time_unit=duka.TimeUnit.MINUTE,
-                offer_side=duka.OfferSide.BID,
-                start=now - timedelta(minutes=interval_min * 4),
-                end=now
-            ))
-            if recent:
-                recent.sort(key=lambda x: x.timestamp)
-                latest_raw = recent[-1]
-                if self.last_candle_timestamp is None or latest_raw.timestamp > self.last_candle_timestamp:
-                    c_obj = Candle(
-                        timestamp=latest_raw.timestamp,
-                        open=float(latest_raw.open),
-                        high=float(latest_raw.high),
-                        low=float(latest_raw.low),
-                        close=float(latest_raw.close),
-                        tick_volume=float(latest_raw.volume),
-                        symbol=self.symbol,
-                        timeframe=self.timeframe,
-                        is_closed=True
-                    )
-                    self.last_candle_timestamp = latest_raw.timestamp
-                    self.total_candles_received += 1
-                    if self.on_bar_completed:
-                        self.on_bar_completed(c_obj, False)
+            for tf in ("M5", "M1"):
+                interval_min = 5 if tf == "M5" else 1
+                recent = list(duka.fetch_candles(
+                    instrument=I_XAU_USD,
+                    interval=interval_min,
+                    time_unit=duka.TimeUnit.MINUTE,
+                    offer_side=duka.OfferSide.BID,
+                    start=now - timedelta(minutes=interval_min * 4),
+                    end=now
+                ))
+                if recent:
+                    recent.sort(key=lambda x: x.timestamp)
+                    # Filter strictly closed candles: candle duration must be completely finished
+                    closed_candidates = [
+                        c for c in recent
+                        if (c.timestamp + timedelta(minutes=interval_min)) <= now
+                    ]
+                    if closed_candidates:
+                        latest_closed = closed_candidates[-1]
+                        prev_ts = self.last_candle_timestamp.get(tf)
+                        if prev_ts is None or latest_closed.timestamp > prev_ts:
+                            c_obj = Candle(
+                                timestamp=latest_closed.timestamp,
+                                open=float(latest_closed.open),
+                                high=float(latest_closed.high),
+                                low=float(latest_closed.low),
+                                close=float(latest_closed.close),
+                                tick_volume=float(latest_closed.volume),
+                                symbol=self.symbol,
+                                timeframe=tf,
+                                is_closed=True
+                            )
+                            with self._lock:
+                                self.last_candle_timestamp[tf] = latest_closed.timestamp
+                                if tf == self.timeframe:
+                                    self.last_price = float(latest_closed.close)
+                            self.total_candles_received += 1
+                            if self.on_bar_completed:
+                                self.on_bar_completed(c_obj, False)
         except Exception as e:
             logger.debug(f"Candle sync check notice: {e}")
