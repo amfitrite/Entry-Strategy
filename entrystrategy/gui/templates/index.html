@@ -1341,10 +1341,17 @@
           const state = (typeof res === 'string') ? JSON.parse(res) : res;
           
           if (state && state.bridge) {
-            document.getElementById('symbolText').innerText = state.bridge.symbol || 'XAUUSD';
-            document.getElementById('priceText').innerText = state.bridge.price.toFixed(2);
-            document.getElementById('spreadText').innerText = state.bridge.spread.toFixed(2);
-            document.getElementById('tpsText').innerText = `${state.bridge.tps || 0} t/s`;
+            const symEl = document.getElementById('symbolText');
+            if (symEl) symEl.innerText = state.bridge.symbol || 'XAUUSD';
+
+            const pxEl = document.getElementById('priceText');
+            if (pxEl) pxEl.innerText = (state.bridge.price != null && !isNaN(state.bridge.price)) ? Number(state.bridge.price).toFixed(2) : '-';
+
+            const spEl = document.getElementById('spreadText');
+            if (spEl) spEl.innerText = (state.bridge.spread != null && !isNaN(state.bridge.spread)) ? Number(state.bridge.spread).toFixed(2) : '-';
+
+            const tpsEl = document.getElementById('tpsText');
+            if (tpsEl) tpsEl.innerText = `${state.bridge.tps || 0} t/s`;
             
             const pillEl = document.getElementById('bridgePill');
             const txtEl = document.getElementById('bridgeText');
