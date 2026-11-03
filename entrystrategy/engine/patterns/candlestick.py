@@ -29,7 +29,7 @@ class CandlestickReversalPattern(BasePattern):
             if c0.body >= (c1.body * 1.1) and c0.close > c1.open and c0.open <= (c1.close + 0.10):
                 if c0.upper_wick <= (c0.range * 0.35):
                     ref_px = c1.open
-                    trig_px = tick.ask if tick else c0.close
+                    trig_px = c0.close
                     inv_px = min(c0.low, c1.low)
                     return EntrySignal(
                         pattern_id=self.pattern_id,
@@ -55,7 +55,7 @@ class CandlestickReversalPattern(BasePattern):
             if c0.body >= (c1.body * 1.1) and c0.close < c1.open and c0.open >= (c1.close - 0.10):
                 if c0.lower_wick <= (c0.range * 0.35):
                     ref_px = c1.open
-                    trig_px = tick.bid if tick else c0.close
+                    trig_px = c0.close
                     inv_px = max(c0.high, c1.high)
                     return EntrySignal(
                         pattern_id=self.pattern_id,
@@ -103,7 +103,7 @@ class CandlestickContinuationPattern(BasePattern):
                 # Anti-exhaustion check: upper wick must not exceed 25% of bar, and bar not 3x larger than previous
                 if c0.upper_wick <= (c0.range * 0.25) and c0.body <= (c1.body * 2.5):
                     ref_px = c1.close
-                    trig_px = tick.ask if tick else c0.close
+                    trig_px = c0.close
                     inv_px = c2.open
                     return EntrySignal(
                         pattern_id=self.pattern_id,
@@ -128,7 +128,7 @@ class CandlestickContinuationPattern(BasePattern):
             if c0.close < c1.close < c2.close and c0.open <= c1.open:
                 if c0.lower_wick <= (c0.range * 0.25) and c0.body <= (c1.body * 2.5):
                     ref_px = c1.close
-                    trig_px = tick.bid if tick else c0.close
+                    trig_px = c0.close
                     inv_px = c2.open
                     return EntrySignal(
                         pattern_id=self.pattern_id,
@@ -174,7 +174,7 @@ class MultiCandleReversalPattern(BasePattern):
             body_ratio = c0.body / max(0.01, c1.body)
             if 0.85 <= body_ratio <= 1.45 and c0.close >= c1.open - (0.2 * c1.body):
                 ref_px = c1.open
-                trig_px = tick.ask if tick else c0.close
+                trig_px = c0.close
                 inv_px = min(c0.low, c1.low)
                 return EntrySignal(
                     pattern_id=self.pattern_id,
@@ -199,7 +199,7 @@ class MultiCandleReversalPattern(BasePattern):
             body_ratio = c0.body / max(0.01, c1.body)
             if 0.85 <= body_ratio <= 1.45 and c0.close <= c1.open + (0.2 * c1.body):
                 ref_px = c1.open
-                trig_px = tick.bid if tick else c0.close
+                trig_px = c0.close
                 inv_px = max(c0.high, c1.high)
                 return EntrySignal(
                     pattern_id=self.pattern_id,
@@ -247,7 +247,7 @@ class InsideBarBreakoutPattern(BasePattern):
         # Breakout to the upside
         if c0.close > c2.high:
             ref_px = c2.high
-            trig_px = tick.ask if tick else c0.close
+            trig_px = c0.close
             inv_px = c2.low
             return EntrySignal(
                 pattern_id=self.pattern_id,
@@ -269,7 +269,7 @@ class InsideBarBreakoutPattern(BasePattern):
         # Breakout to the downside
         if c0.close < c2.low:
             ref_px = c2.low
-            trig_px = tick.bid if tick else c0.close
+            trig_px = c0.close
             inv_px = c2.high
             return EntrySignal(
                 pattern_id=self.pattern_id,
@@ -316,7 +316,7 @@ class OutsideBarBreakoutPattern(BasePattern):
         # Continuation breakout above outside bar
         if c0.close > c1.high:
             ref_px = c1.high
-            trig_px = tick.ask if tick else c0.close
+            trig_px = c0.close
             inv_px = (c1.high + c1.low) / 2.0
             return EntrySignal(
                 pattern_id=self.pattern_id,
@@ -338,7 +338,7 @@ class OutsideBarBreakoutPattern(BasePattern):
         # Continuation breakdown below outside bar
         if c0.close < c1.low:
             ref_px = c1.low
-            trig_px = tick.bid if tick else c0.close
+            trig_px = c0.close
             inv_px = (c1.high + c1.low) / 2.0
             return EntrySignal(
                 pattern_id=self.pattern_id,
@@ -383,7 +383,7 @@ class MomentumPattern(BasePattern):
         if c0.is_bullish and c0.range >= (avg_range * 1.5) and c0.body >= (c0.range * 0.70):
             if c0.upper_wick <= (c0.range * 0.18):
                 ref_px = c0.open
-                trig_px = tick.ask if tick else c0.close
+                trig_px = c0.close
                 inv_px = c0.low
                 return EntrySignal(
                     pattern_id=self.pattern_id,
@@ -407,7 +407,7 @@ class MomentumPattern(BasePattern):
         if c0.is_bearish and c0.range >= (avg_range * 1.5) and c0.body >= (c0.range * 0.70):
             if c0.lower_wick <= (c0.range * 0.18):
                 ref_px = c0.open
-                trig_px = tick.bid if tick else c0.close
+                trig_px = c0.close
                 inv_px = c0.high
                 return EntrySignal(
                     pattern_id=self.pattern_id,
@@ -456,7 +456,7 @@ class VolatilityContractionPattern(BasePattern):
         # Trigger: c0 breaks out of the contracted mother bar c1
         if c0.close > c1.high:
             ref_px = c1.high
-            trig_px = tick.ask if tick else c0.close
+            trig_px = c0.close
             inv_px = c1.low
             return EntrySignal(
                 pattern_id=self.pattern_id,
@@ -477,7 +477,7 @@ class VolatilityContractionPattern(BasePattern):
 
         if c0.close < c1.low:
             ref_px = c1.low
-            trig_px = tick.bid if tick else c0.close
+            trig_px = c0.close
             inv_px = c1.high
             return EntrySignal(
                 pattern_id=self.pattern_id,
@@ -523,7 +523,7 @@ class WickPattern(BasePattern):
         # Hammer / Bullish Wick Rejection
         if c0.lower_wick >= (c0.range * 0.60) and c0.upper_wick <= (c0.range * 0.20):
             ref_px = c0.low
-            trig_px = tick.ask if tick else c0.close
+            trig_px = c0.close
             inv_px = c0.low
             return EntrySignal(
                 pattern_id=self.pattern_id,
@@ -545,7 +545,7 @@ class WickPattern(BasePattern):
         # Shooting Star / Bearish Wick Rejection
         if c0.upper_wick >= (c0.range * 0.60) and c0.lower_wick <= (c0.range * 0.20):
             ref_px = c0.high
-            trig_px = tick.bid if tick else c0.close
+            trig_px = c0.close
             inv_px = c0.high
             return EntrySignal(
                 pattern_id=self.pattern_id,
@@ -589,7 +589,7 @@ class BodyExpansionPattern(BasePattern):
         if c0.is_bullish and c1.is_bullish and c2.is_bullish and c2.body >= 0.20:
             if c0.body >= (c1.body * 1.20) and c1.body >= (c2.body * 1.20):
                 ref_px = c1.high
-                trig_px = tick.ask if tick else c0.close
+                trig_px = c0.close
                 inv_px = c0.low
                 return EntrySignal(
                     pattern_id=self.pattern_id,
@@ -612,7 +612,7 @@ class BodyExpansionPattern(BasePattern):
         if c0.is_bearish and c1.is_bearish and c2.is_bearish and c2.body >= 0.20:
             if c0.body >= (c1.body * 1.20) and c1.body >= (c2.body * 1.20):
                 ref_px = c1.low
-                trig_px = tick.bid if tick else c0.close
+                trig_px = c0.close
                 inv_px = c0.high
                 return EntrySignal(
                     pattern_id=self.pattern_id,
@@ -658,7 +658,7 @@ class BodyContractionPattern(BasePattern):
             # Trigger: c0 breaks below the low of contracted bar c1
             if is_exhausting and c0.close < c1.low:
                 ref_px = c1.low
-                trig_px = tick.bid if tick else c0.close
+                trig_px = c0.close
                 inv_px = c1.high
                 return EntrySignal(
                     pattern_id=self.pattern_id,
@@ -683,7 +683,7 @@ class BodyContractionPattern(BasePattern):
             # Trigger: c0 breaks above the high of contracted bar c1
             if is_exhausting and c0.close > c1.high:
                 ref_px = c1.high
-                trig_px = tick.ask if tick else c0.close
+                trig_px = c0.close
                 inv_px = c1.low
                 return EntrySignal(
                     pattern_id=self.pattern_id,
@@ -726,7 +726,7 @@ class StaircasePattern(BasePattern):
         # Bullish staircase: strict higher highs and higher lows across 4 bars
         if (c0.high > c1.high > c2.high > c3.high) and (c0.low > c1.low > c2.low > c3.low):
             ref_px = c1.high
-            trig_px = tick.ask if tick else c0.close
+            trig_px = c0.close
             inv_px = c0.low
             return EntrySignal(
                 pattern_id=self.pattern_id,
@@ -749,7 +749,7 @@ class StaircasePattern(BasePattern):
         # Bearish staircase: strict lower highs and lower lows across 4 bars
         if (c0.high < c1.high < c2.high < c3.high) and (c0.low < c1.low < c2.low < c3.low):
             ref_px = c1.low
-            trig_px = tick.bid if tick else c0.close
+            trig_px = c0.close
             inv_px = c0.high
             return EntrySignal(
                 pattern_id=self.pattern_id,
@@ -794,7 +794,7 @@ class CandleSequencePattern(BasePattern):
         if c3.is_bearish and c2.is_bearish and c1.is_doji and c0.is_bullish:
             if c0.body >= (c1.range * 1.4) and c0.close > c2.close:
                 ref_px = c1.high
-                trig_px = tick.ask if tick else c0.close
+                trig_px = c0.close
                 inv_px = c1.low
                 return EntrySignal(
                     pattern_id=self.pattern_id,
@@ -817,7 +817,7 @@ class CandleSequencePattern(BasePattern):
         if c3.is_bullish and c2.is_bullish and c1.is_doji and c0.is_bearish:
             if c0.body >= (c1.range * 1.4) and c0.close < c2.close:
                 ref_px = c1.low
-                trig_px = tick.bid if tick else c0.close
+                trig_px = c0.close
                 inv_px = c1.high
                 return EntrySignal(
                     pattern_id=self.pattern_id,
