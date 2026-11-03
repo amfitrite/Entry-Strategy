@@ -106,3 +106,41 @@ def test_matrix_window_api_recent_signals_history():
     assert len(state4["recent_signals"]) == 0
 
     service.stop()
+
+
+def test_ui_template_tier_icons_and_apex_sorting():
+    """Verify index.html contains tier icons, top-left apex tier sorting, and grading modal population."""
+    import pathlib
+    template_path = pathlib.Path(__file__).parent.parent / "entrystrategy" / "gui" / "templates" / "index.html"
+    assert template_path.exists(), "index.html template missing"
+    html = template_path.read_text(encoding="utf-8")
+
+    # 1. Distinct tier icons exist
+    assert "👑" in html, "👑 SSS Crown icon missing"
+    assert "💠" in html, "💠 SS Prismatic crystal icon missing"
+    assert "💎" in html, "💎 S Diamond icon missing"
+    assert "🎖️" in html, "🎖️ A Medal icon missing"
+    assert "🎯" in html, "🎯 B Target icon missing"
+    assert "⚪" in html, "⚪ C Circle icon missing"
+    assert "⛔" in html, "⛔ D Stop disc icon missing"
+
+    # 2. JavaScript helper functions exist
+    assert "function getTierIcon(tier)" in html
+    assert "function getTierWeight(tier)" in html
+    assert "sortByTierApex = true" in html
+
+    # 3. Top-Left Apex priority sort in renderSignals
+    assert "getTierWeight(tierB) - getTierWeight(tierA)" in html
+    assert "scB - scA" in html
+
+    # 4. Modal grading population
+    assert "function populateModalGrading(sig, p)" in html
+    assert "modalGradeBadge" in html
+    assert "modalCappedNotice" in html
+    assert "modalGradeReasonsContainer" in html
+    assert "compPatternQuality" in html
+    assert "compMarketStructure" in html
+    assert "compLocationQuality" in html
+    assert "compCandleConfirm" in html
+    assert "compExecutionQuality" in html
+

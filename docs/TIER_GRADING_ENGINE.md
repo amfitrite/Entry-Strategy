@@ -178,7 +178,29 @@ Parameter volatilitas XAUUSD disesuaikan secara proporsional per timeframe:
 
 ---
 
-## 8. Verifikasi dan Pengujian
+## 8. Desain UI & Tata Letak Apex (Top-Left Priority)
+
+Untuk menghadirkan pengalaman visual instan dan intuitif:
+- **Ikon Khusus Setiap Tier:**
+  - `👑 SSS` (Crown / Mahkota Emas dengan radiant amber glow)
+  - `💠 SS` (Dual Prismatic Crystal dengan cyan/cyber-blue glow)
+  - `💎 S` (Solitaire Diamond dengan emerald glow)
+  - `🎖️ A` (Honor Medal dengan electric blue)
+  - `🎯 B` (Bullseye Target dengan warm bronze amber)
+  - `⚪ C` (Circle Gauge dengan deep orange)
+  - `⛔ D` (Diminished Stop dengan slate steel)
+
+- **Apex Top-Left Layout Priority (Susun Kiri Atas):**
+  - Grid sinyal pada **Live Radar** secara default disusun berurutan:
+    1. **Tier Rank Weight:** `SSS` (7) > `SS` (6) > `S` (5) > `A` (4) > `B` (3) > `C` (2) > `D` (1).
+    2. **Grade Score:** Descending (misal SSS 98.2 mendahului SSS 95.4).
+    3. **Timestamp / Recency:** Descending (sinyal paling baru).
+  - Ini menjamin kartu di pojok **Kiri Atas (Top-Left)** adalah peluang dengan keyakinan (conviction) dan kualitas teknikal tertinggi.
+  - Detail Modal mengaudit 5 bar komponen teknikal, penalti, serta alasan penentuan tier secara transparan.
+
+---
+
+## 9. Verifikasi dan Pengujian
 
 Seluruh 15 kriteria pengujian wajib yang disyaratkan berhasil lulus 100%:
 
@@ -199,6 +221,7 @@ tests/test_tier_grading_engine.py::test_prices_never_altered_by_grading PASSED
 tests/test_tier_grading_engine.py::test_no_tick_dependency PASSED
 tests/test_tier_grading_engine.py::test_mtf_context_uses_only_closed_candles PASSED
 tests/test_tier_grading_engine.py::test_all_40_evaluators_run_on_m1_m5_m15 PASSED
+tests/test_gui_api.py::test_ui_template_tier_icons_and_apex_sorting PASSED
 
-93 passed in 3.49s (100% pass across all test suites)
+94 passed in 3.09s (100% pass across all test suites)
 ```
