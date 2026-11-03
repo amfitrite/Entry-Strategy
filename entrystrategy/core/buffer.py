@@ -1,4 +1,4 @@
-"""Sliding Window Buffers for Ticks and Candles supporting M1 and M5 timeframes."""
+"""Quote telemetry and completed-candle buffers for M1/M5 strategy evaluation."""
 from collections import deque
 from typing import List, Optional, Dict, Any
 import threading
@@ -103,7 +103,7 @@ class MarketBuffer:
             return 0.25
 
     def set_current_time_ms(self, ts_ms: Optional[int]):
-        """Sets an explicit simulation/backtest timestamp (or None for wall clock / tick time)."""
+        """Sets an explicit simulation/backtest timestamp, or None to use wall-clock detection time."""
         with self._lock:
             self._current_time_ms = ts_ms
 
@@ -120,7 +120,7 @@ class MarketBuffer:
         Since Dukascopy candle bars are Bid-side:
         - In candle-only mode (or whenever ref_close is a candle price):
           BUY = ref_close + spread (Ask), SELL = ref_close (Bid).
-        - In tick mode with live streaming ticks, uses live ask/bid quotes.
+        - When a fresh live bid/ask quote is available, uses that quote for estimated fill.
         """
         dir_upper = str(direction).upper()
         is_buy = "BUY" in dir_upper
