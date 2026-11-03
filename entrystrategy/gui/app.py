@@ -209,8 +209,38 @@ class MatrixWindowAPI:
             except Exception:
                 pass
 
+    def _collect_window_geometry(self) -> Dict[str, Any]:
+        info: Dict[str, Any] = {
+            "is_simple_mode": self._is_simple_mode,
+        }
+        try:
+            if self._prev_rect:
+                info["x"], info["y"], info["width"], info["height"] = self._prev_rect
+            elif self._window:
+                hwnd = _get_app_hwnd(self._window.title)
+                if sys.platform == "win32" and hwnd:
+                    rect = ctypes.wintypes.RECT()
+                    if user32.GetWindowRect(hwnd, ctypes.byref(rect)):
+                        info["x"] = rect.left
+                        info["y"] = rect.top
+                        info["width"] = rect.right - rect.left
+                        info["height"] = rect.bottom - rect.top
+                else:
+                    info["x"] = getattr(self._window, "x", 100)
+                    info["y"] = getattr(self._window, "y", 100)
+                    info["width"] = getattr(self._window, "width", 1380)
+                    info["height"] = getattr(self._window, "height", 860)
+        except Exception as e:
+            logger.debug(f"Error querying window geometry: {e}")
+        return info
+
     def close_window(self):
         """Cleanly stops backend services and exits process without leaving zombie python processes."""
+        try:
+            geom = self._collect_window_geometry()
+            self._service.save_state(window_info=geom)
+        except Exception:
+            pass
         try:
             self._service.stop()
         except Exception:
@@ -227,6 +257,14 @@ class MatrixWindowAPI:
     def get_matrix_state(self) -> str:
         state = self._service.get_matrix_state()
         return json.dumps(state)
+
+    def save_user_preferences(self, prefs_json: str) -> str:
+        try:
+            prefs = json.loads(prefs_json) if isinstance(prefs_json, str) else prefs_json
+            res = self._service.save_user_preferences(prefs)
+            return json.dumps(res)
+        except Exception as e:
+            return json.dumps({"success": False, "error": str(e)})
 
     def trigger_manual_test(self, pattern_id: int, direction_str: str) -> str:
         res = self._service.trigger_pattern_manual_test(pattern_id, direction_str)
@@ -337,19 +375,37 @@ def launch_gui(service: Optional[EntryStrategyService] = None):
 
     html_file = Path(__file__).parent / "templates" / "index.html"
 
-    window = webview.create_window(
-        title=entry_service.config.window_title,
-        url=str(html_file.resolve()),
-        width=entry_service.config.window_width,
-        height=entry_service.config.window_height,
-        frameless=entry_service.config.frameless,
-        resizable=True,
-        min_size=(250, 36),
-        js_api=api,
-    )
+    from entrystrategy.core.persistence import load_session_state
+    saved_state = load_session_state() or {}
+    saved_window = saved_state.get("window", {})
+    init_width = saved_window.get("width", entry_service.config.window_width)
+    init_height = saved_window.get("height", entry_service.config.window_height)
+    init_x = saved_window.get("x")
+    init_y = saved_window.get("y")
+
+    create_kwargs: Dict[str, Any] = {
+        "title": entry_service.config.window_title,
+        "url": str(html_file.resolve()),
+        "width": max(600, int(init_width)),
+        "height": max(400, int(init_height)),
+        "frameless": entry_service.config.frameless,
+        "resizable": True,
+        "min_size": (250, 36),
+        "js_api": api,
+    }
+    if init_x is not None and init_y is not None:
+        create_kwargs["x"] = int(init_x)
+        create_kwargs["y"] = int(init_y)
+
+    window = webview.create_window(**create_kwargs)
     api.set_window(window)
 
     def on_window_closed():
+        try:
+            geom = api._collect_window_geometry()
+            entry_service.save_state(window_info=geom)
+        except Exception:
+            pass
         try:
             entry_service.stop()
         except Exception:

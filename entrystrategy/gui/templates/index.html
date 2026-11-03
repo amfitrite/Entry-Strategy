@@ -1040,9 +1040,39 @@
       color: #64748b;
     }
 
+    /* Toast Notification for Continue where you left off */
+    .session-toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: rgba(18, 22, 32, 0.94);
+      backdrop-filter: blur(12px);
+      border: 1px solid #3b82f6;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), 0 0 15px rgba(59, 130, 246, 0.3);
+      color: #f8fafc;
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      z-index: 99999;
+      transform: translateY(80px);
+      opacity: 0;
+      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      pointer-events: none;
+    }
+    .session-toast.show {
+      transform: translateY(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
 </style>
 </head>
 <body>
+  <!-- Continue where you left off floating notification -->
+  <div id="sessionToast" class="session-toast"></div>
 
   <!-- Top App Bar (Chrome Frameless Draggable) -->
   <header class="app-header">
@@ -1075,6 +1105,7 @@
         <span style="color:#94a3b8; font-size:10.5px; font-weight:800; margin-left:3px; margin-right:2px; user-select:none;">TF:</span>
         <button type="button" class="btn-tf" id="btnTfM1" onclick="selectTimeframe('M1', event)" onmousedown="event.stopPropagation()">M1</button>
         <button type="button" class="btn-tf active" id="btnTfM5" onclick="selectTimeframe('M5', event)" onmousedown="event.stopPropagation()">M5</button>
+        <button type="button" class="btn-tf" id="btnTfM15" onclick="selectTimeframe('M15', event)" onmousedown="event.stopPropagation()">M15</button>
       </div>
 
       <div class="pill" title="Jumlah Candle Terkumpul dari Dukascopy Bank">
@@ -1313,8 +1344,35 @@
     let currentView = 'radar'; // 'radar' | 'history'
     let currentHistoryFilter = 'ALL'; // 'ALL' | 'CONFIRMED' | 'INVALIDATED' | 'EXPIRED'
     let historySignals = [];
+    let hasInitializedFromSession = false;
+    let toastTimeout = null;
 
-    function switchView(viewName) {
+    function showToast(message) {
+      const toast = document.getElementById('sessionToast');
+      if (!toast) return;
+      toast.innerText = message;
+      toast.classList.add('show');
+      if (toastTimeout) clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        toast.classList.remove('show');
+      }, 4000);
+    }
+
+    function persistUserPreferences() {
+      try {
+        if (window.pywebview && window.pywebview.api && window.pywebview.api.save_user_preferences) {
+          window.pywebview.api.save_user_preferences(JSON.stringify({
+            view: currentView,
+            radar_filter: currentDirFilter,
+            history_filter: currentHistoryFilter,
+          }));
+        }
+      } catch (e) {
+        console.debug("Failed to persist user preferences:", e);
+      }
+    }
+
+    function switchView(viewName, shouldPersist = true) {
       currentView = viewName;
       const tabRadar = document.getElementById('tabRadar');
       const tabHist = document.getElementById('tabHistory');
@@ -1340,13 +1398,15 @@
         if (radarFilterGroup) radarFilterGroup.style.display = 'none';
         renderHistory();
       }
+      if (shouldPersist) persistUserPreferences();
     }
 
-    function setHistoryFilter(status, btn) {
+    function setHistoryFilter(status, btn, shouldPersist = true) {
       currentHistoryFilter = status;
       document.querySelectorAll('#historyFilterGroup .filter-btn').forEach(b => b.classList.remove('active'));
       if (btn) btn.classList.add('active');
       renderHistory();
+      if (shouldPersist) persistUserPreferences();
     }
 
     function renderHistory() {
@@ -1545,11 +1605,12 @@
       if (window.pywebview && window.pywebview.api) window.pywebview.api.close_window();
     }
 
-    function setDirectionFilter(dir, btn) {
+    function setDirectionFilter(dir, btn, shouldPersist = true) {
       currentDirFilter = dir;
-      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
+      document.querySelectorAll('#radarFilterGroup .filter-btn').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
       renderSignals();
+      if (shouldPersist) persistUserPreferences();
     }
 
     async function clearAllSignals() {
@@ -1776,15 +1837,10 @@
       // 1. Immediate UI update (Zero-latency visual confirmation)
       const btnM1 = document.getElementById('btnTfM1');
       const btnM5 = document.getElementById('btnTfM5');
-      if (btnM1 && btnM5) {
-        if (cleanTf === 'M1') {
-          btnM1.classList.add('active');
-          btnM5.classList.remove('active');
-        } else {
-          btnM5.classList.add('active');
-          btnM1.classList.remove('active');
-        }
-      }
+      const btnM15 = document.getElementById('btnTfM15');
+      if (btnM1) btnM1.classList.toggle('active', cleanTf === 'M1');
+      if (btnM5) btnM5.classList.toggle('active', cleanTf === 'M5');
+      if (btnM15) btnM15.classList.toggle('active', cleanTf === 'M15');
       const barsEl = document.getElementById('barsCountText');
       if (barsEl) {
         barsEl.innerText = `Syncing ${cleanTf}...`;
@@ -1841,6 +1897,33 @@
         if (window.pywebview && window.pywebview.api) {
           const res = await window.pywebview.api.get_matrix_state();
           const state = (typeof res === 'string') ? JSON.parse(res) : res;
+
+          if (!hasInitializedFromSession && state && state.saved_session) {
+            hasInitializedFromSession = true;
+            const prefs = state.saved_session.preferences || {};
+            if (prefs.view && prefs.view !== currentView) {
+              switchView(prefs.view, false);
+            }
+            if (prefs.radar_filter && prefs.radar_filter !== currentDirFilter) {
+              const btn = document.getElementById(
+                prefs.radar_filter === 'BUY' ? 'btnFilterBuy' :
+                prefs.radar_filter === 'SELL' ? 'btnFilterSell' : 'btnFilterAll'
+              );
+              if (btn) setDirectionFilter(prefs.radar_filter, btn, false);
+            }
+            if (prefs.history_filter && prefs.history_filter !== currentHistoryFilter) {
+              const btn = document.getElementById(
+                prefs.history_filter === 'CONFIRMED' ? 'btnHistFilterConf' :
+                prefs.history_filter === 'INVALIDATED' ? 'btnHistFilterInval' :
+                prefs.history_filter === 'EXPIRED' ? 'btnHistFilterExp' : 'btnHistFilterAll'
+              );
+              if (btn) setHistoryFilter(prefs.history_filter, btn, false);
+            }
+            if (state.saved_session.restored) {
+              const sigCnt = (state.recent_signals || []).length;
+              showToast(`⚡ Melanjutkan sesi sebelumnya: TF ${state.config.timeframe || 'M5'} | ${sigCnt} Sinyal Tersimpan`);
+            }
+          }
           
           if (state && state.bridge) {
             const symEl = document.getElementById('symbolText');
@@ -1901,15 +1984,10 @@
             const tf = state.config.timeframe || 'M5';
             const btnM1 = document.getElementById('btnTfM1');
             const btnM5 = document.getElementById('btnTfM5');
-            if (btnM1 && btnM5) {
-              if (tf === 'M1') {
-                btnM1.classList.add('active');
-                btnM5.classList.remove('active');
-              } else {
-                btnM5.classList.add('active');
-                btnM1.classList.remove('active');
-              }
-            }
+            const btnM15 = document.getElementById('btnTfM15');
+            if (btnM1) btnM1.classList.toggle('active', tf === 'M1');
+            if (btnM5) btnM5.classList.toggle('active', tf === 'M5');
+            if (btnM15) btnM15.classList.toggle('active', tf === 'M15');
 
             const barsEl = document.getElementById('barsCountText');
             if (barsEl) {

@@ -24,6 +24,7 @@ class MarketBuffer:
         self._ticks: deque = deque(maxlen=tick_capacity)
         self._candles_m1: deque = deque(maxlen=candle_capacity)
         self._candles_m5: deque = deque(maxlen=candle_capacity)
+        self._candles_m15: deque = deque(maxlen=candle_capacity)
         self._candles: deque = deque(maxlen=candle_capacity)
         self._current_bar: Optional[Candle] = None
         self._current_time_ms: Optional[int] = None
@@ -34,7 +35,12 @@ class MarketBuffer:
         tf_clean = tf.upper()
         with self._lock:
             self.active_timeframe = tf_clean
-            source = self._candles_m5 if tf_clean == "M5" else self._candles_m1
+            if tf_clean == "M15":
+                source = self._candles_m15
+            elif tf_clean == "M5":
+                source = self._candles_m5
+            else:
+                source = self._candles_m1
             self._candles = deque(source, maxlen=self._candle_capacity)
 
     def set_enable_ticks(self, enable: bool):
@@ -52,7 +58,11 @@ class MarketBuffer:
             return
         tf = (candle.timeframe or "M1").upper()
         with self._lock:
-            if tf == "M5":
+            if tf == "M15":
+                self._candles_m15.append(candle)
+                if self.active_timeframe == "M15":
+                    self._candles.append(candle)
+            elif tf == "M5":
                 self._candles_m5.append(candle)
                 if self.active_timeframe == "M5":
                     self._candles.append(candle)
@@ -79,7 +89,12 @@ class MarketBuffer:
         """
         tf = (timeframe or self.active_timeframe).upper()
         with self._lock:
-            source = self._candles_m5 if tf == "M5" else self._candles_m1
+            if tf == "M15":
+                source = self._candles_m15
+            elif tf == "M5":
+                source = self._candles_m5
+            else:
+                source = self._candles_m1
             n = min(len(source), count)
             return [source[-i] for i in range(1, n + 1)]
 
@@ -143,7 +158,12 @@ class MarketBuffer:
     @property
     def total_candles(self) -> int:
         with self._lock:
-            source = self._candles_m5 if self.active_timeframe == "M5" else self._candles_m1
+            if self.active_timeframe == "M15":
+                source = self._candles_m15
+            elif self.active_timeframe == "M5":
+                source = self._candles_m5
+            else:
+                source = self._candles_m1
             return len(source)
 
     @property
@@ -155,3 +175,8 @@ class MarketBuffer:
     def total_candles_m5(self) -> int:
         with self._lock:
             return len(self._candles_m5)
+
+    @property
+    def total_candles_m15(self) -> int:
+        with self._lock:
+            return len(self._candles_m15)

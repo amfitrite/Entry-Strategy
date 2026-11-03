@@ -73,6 +73,7 @@ class DukascopyFeed:
         self.last_candle_timestamp: Dict[str, Optional[datetime]] = {
             "M1": None,
             "M5": None,
+            "M15": None,
         }
         self.last_price: float = 0.0
         self.last_spread: float = 0.0
@@ -126,7 +127,7 @@ class DukascopyFeed:
 
         tf = (timeframe or self.timeframe).upper()
         req_count = count or self.warmup_candles
-        interval_min = 5 if tf == "M5" else 1
+        interval_min = 15 if tf == "M15" else (5 if tf == "M5" else 1)
 
         # Look back enough hours to comfortably cover requested candle count + weekends/gaps
         hours_needed = max(3.0, (req_count * interval_min / 60.0) * 1.5)
@@ -186,7 +187,7 @@ class DukascopyFeed:
     def set_timeframe(self, new_tf: str):
         """Switches active timeframe for live stream aggregation."""
         clean_tf = new_tf.upper()
-        if clean_tf not in ("M1", "M5"):
+        if clean_tf not in ("M1", "M5", "M15"):
             return
         with self._lock:
             self.timeframe = clean_tf
@@ -197,7 +198,14 @@ class DukascopyFeed:
             self._notify_status(False, "dukascopy-python not installed")
             return
 
-        # 1. Dual historical warmup (pre-warm both M5 and M1 so timeframe switching is 100% instant)
+        # 1. Triple historical warmup (pre-warm M15, M5, and M1 so timeframe switching is 100% instant)
+        warmup_m15 = self.fetch_warmup_candles("M15", self.warmup_candles)
+        if warmup_m15 and self.on_bar_completed:
+            for bar in warmup_m15:
+                try:
+                    self.on_bar_completed(bar, True)  # is_history=True
+                except Exception as e:
+                    logger.error(f"Error in on_bar_completed during M15 warmup: {e}")
         warmup_m5 = self.fetch_warmup_candles("M5", self.warmup_candles)
         if warmup_m5 and self.on_bar_completed:
             for bar in warmup_m5:
@@ -296,8 +304,8 @@ class DukascopyFeed:
     def _sync_latest_candle(self, now: datetime):
         """Checks for official closed candles on Dukascopy and dispatches all missing closed bars sequentially."""
         try:
-            for tf in ("M5", "M1"):
-                interval_min = 5 if tf == "M5" else 1
+            for tf in ("M15", "M5", "M1"):
+                interval_min = 15 if tf == "M15" else (5 if tf == "M5" else 1)
                 prev_ts = self.last_candle_timestamp.get(tf)
                 
                 # P1 Fix: Search window begins from previous cursor backward, covering connection drops

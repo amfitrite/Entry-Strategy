@@ -4,7 +4,9 @@ import threading
 import time
 from collections import deque
 from typing import Dict, Any, List, Optional, Callable
+from datetime import datetime, timezone
 from entrystrategy.config import AppConfig
+from entrystrategy.core.persistence import load_session_state, save_session_state
 from entrystrategy.core.models import TickData, Candle, EntrySignal, SignalDirection, SignalStatus
 from entrystrategy.core.buffer import MarketBuffer
 from entrystrategy.engine.registry import PatternRegistry
@@ -15,10 +17,42 @@ logger = logging.getLogger("EntryStrategy.Service")
 
 
 class EntryStrategyService:
-    def __init__(self, config: Optional[AppConfig] = None, start_servers: bool = True):
+    def __init__(
+        self,
+        config: Optional[AppConfig] = None,
+        start_servers: bool = True,
+        persist_session: Optional[bool] = None,
+        state_filepath: Optional[str] = None,
+    ):
         self.config = config or AppConfig()
         self.active_timeframe = getattr(self.config, "timeframe", "M5").upper()
         self.enable_ticks = False  # strategy engine is permanently candle-only
+
+        import os
+        is_in_pytest = bool(os.environ.get("PYTEST_CURRENT_TEST"))
+        if persist_session is not None:
+            self.persist_session = persist_session
+        elif hasattr(self.config, "persist_session") and self.config.persist_session is not None:
+            self.persist_session = self.config.persist_session if not is_in_pytest else False
+        else:
+            self.persist_session = not is_in_pytest
+
+        self.state_filepath = state_filepath or getattr(self.config, "state_filepath", None)
+
+        # Continue where you left off: Load saved session state if available
+        self.saved_preferences = {
+            "view": "radar",
+            "radar_filter": "ALL",
+            "history_filter": "ALL",
+        }
+        self.session_restored = False
+        saved_state = None
+        if self.persist_session:
+            saved_state = load_session_state(self.state_filepath)
+            if saved_state:
+                saved_tf = saved_state.get("active_timeframe")
+                if saved_tf in ("M1", "M5", "M15"):
+                    self.active_timeframe = saved_tf
 
         self.buffer = MarketBuffer(
             tick_capacity=self.config.tick_buffer_size,
@@ -33,6 +67,9 @@ class EntryStrategyService:
         self.total_buy_signals: int = 0
         self.total_sell_signals: int = 0
         self._lock = threading.RLock()
+        
+        if self.persist_session and saved_state:
+            self._restore_session_state(saved_state)
         
         self.feed_connected = False
         self.feed_status_text = "Initializing Dukascopy Live Feed..."
@@ -63,6 +100,66 @@ class EntryStrategyService:
         if start_servers:
             self.start()
 
+    def _restore_session_state(self, state: Dict[str, Any]):
+        try:
+            self.total_buy_signals = int(state.get("total_buy", 0))
+            self.total_sell_signals = int(state.get("total_sell", 0))
+
+            raw_signals = state.get("recent_signals", [])
+            for s_dict in reversed(raw_signals):
+                try:
+                    sig = EntrySignal.from_dict(s_dict)
+                    self.recent_signals.appendleft(sig)
+                    if sig.pattern_id not in self.latest_signals_by_pattern:
+                        self.latest_signals_by_pattern[sig.pattern_id] = sig
+                except Exception as ex:
+                    logger.debug(f"Failed to restore signal: {ex}")
+
+            for pid, sig in self.latest_signals_by_pattern.items():
+                pat = self.registry.get_pattern(pid)
+                if pat:
+                    pat.last_signal = sig
+                    pat.last_direction = sig.direction
+                    pat.last_trigger_ms = sig.timestamp_ms
+
+            if "preferences" in state and isinstance(state["preferences"], dict):
+                self.saved_preferences.update(state["preferences"])
+
+            self.session_restored = True
+            logger.info(
+                f"Continue where you left off: Restored {len(self.recent_signals)} signals, TF={self.active_timeframe}"
+            )
+        except Exception as e:
+            logger.warning(f"Error restoring session state: {e}")
+
+    def save_state(self, window_info: Optional[Dict[str, Any]] = None):
+        """Serializes current active session state so the user can continue where they left off."""
+        if not self.persist_session:
+            return
+        with self._lock:
+            recent_sigs = [s.to_dict() for s in self.recent_signals]
+            existing = load_session_state(self.state_filepath) or {}
+            saved_window = window_info or existing.get("window", {})
+
+            state = {
+                "version": "1.0",
+                "last_saved_at": datetime.now(timezone.utc).isoformat(),
+                "active_timeframe": self.active_timeframe,
+                "total_buy": self.total_buy_signals,
+                "total_sell": self.total_sell_signals,
+                "preferences": self.saved_preferences,
+                "window": saved_window,
+                "recent_signals": recent_sigs,
+            }
+        save_session_state(state, self.state_filepath)
+
+    def save_user_preferences(self, prefs: Dict[str, Any]) -> Dict[str, Any]:
+        """Saves active UI view, filters, or layout preferences for session continuation."""
+        with self._lock:
+            self.saved_preferences.update(prefs)
+        self.save_state()
+        return {"success": True, "preferences": self.saved_preferences}
+
     def start(self):
         """Starts the Dukascopy feed and initial warmup."""
         self.dukascopy_feed.start()
@@ -71,7 +168,8 @@ class EntryStrategyService:
             self.simulator.start()
 
     def stop(self):
-        """Stops the Dukascopy feed and simulator."""
+        """Stops the Dukascopy feed and simulator, and persists session state."""
+        self.save_state()
         self.simulator.stop()
         self.dukascopy_feed.stop()
 
@@ -151,10 +249,12 @@ class EntryStrategyService:
                     elif sig.direction == SignalDirection.SELL:
                         self.total_sell_signals += 1
 
+            self.save_state()
+
     def set_timeframe(self, tf: str) -> Dict[str, Any]:
-        """Switches active candle analysis timeframe between M1 and M5 with instant zero-lag response."""
+        """Switches active candle analysis timeframe between M1, M5, and M15 with instant zero-lag response."""
         tf_clean = tf.upper()
-        if tf_clean not in ("M1", "M5"):
+        if tf_clean not in ("M1", "M5", "M15"):
             return {"success": False, "error": f"Unsupported timeframe: {tf}"}
         
         with self._lock:
@@ -179,6 +279,7 @@ class EntryStrategyService:
             threading.Thread(target=_topup_sync, daemon=True, name=f"TopupSync-{tf_clean}").start()
 
         self._evaluate_patterns()
+        self.save_state()
         logger.info(f"Switched active timeframe to {self.active_timeframe} (Buffer candles: {self.buffer.total_candles})")
         return {"success": True, "timeframe": self.active_timeframe, "candle_count": self.buffer.total_candles}
 
@@ -292,6 +393,10 @@ class EntryStrategyService:
                 },
                 "patterns": pattern_cards,
                 "recent_signals": recent_sigs,
+                "saved_session": {
+                    "restored": self.session_restored,
+                    "preferences": self.saved_preferences,
+                },
             }
 
     def clear_signals(self) -> Dict[str, Any]:
@@ -304,6 +409,7 @@ class EntryStrategyService:
             for pat in self.registry.get_all_patterns():
                 pat.last_signal = None
                 pat.last_direction = SignalDirection.NONE
+        self.save_state()
         return {"success": True}
 
     def trigger_pattern_manual_test(self, pattern_id: int, direction_str: str) -> Dict[str, Any]:
@@ -346,4 +452,5 @@ class EntryStrategyService:
             pat.last_trigger_ms = now_ms
             pat.last_direction = dir_enum
             
+        self.save_state()
         return {"success": True, "signal": sig.to_dict()}

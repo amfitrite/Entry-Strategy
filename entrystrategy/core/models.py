@@ -239,5 +239,55 @@ class EntrySignal:
             "confidence": self.confidence,
             "max_age_sec": self.max_age_sec,
             "confirmed_price": round(self.confirmed_price, 2) if self.confirmed_price is not None else None,
+            "confirmed_time_ms": self.confirmed_time_ms,
             "invalidated_price": round(self.invalidated_price, 2) if self.invalidated_price is not None else None,
+            "invalidated_time_ms": self.invalidated_time_ms,
+            "expired_time_ms": self.expired_time_ms,
         }
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "EntrySignal":
+        """Reconstructs an EntrySignal instance safely from serialized dictionary."""
+        dir_val = data.get("direction", "NONE")
+        try:
+            direction = SignalDirection(dir_val)
+        except Exception:
+            direction = SignalDirection.NONE
+
+        status_val = data.get("status", "ACTIVE")
+        try:
+            status = SignalStatus(status_val)
+        except Exception:
+            status = SignalStatus.ACTIVE
+
+        role_val = data.get("pattern_role", "ENTRY")
+        try:
+            role = PatternRole(role_val)
+        except Exception:
+            role = PatternRole.ENTRY
+
+        return cls(
+            pattern_id=int(data.get("pattern_id", 0)),
+            family_name=str(data.get("family_name", "")),
+            direction=direction,
+            reference_price=float(data.get("reference_price", 0.0)),
+            trigger_price=float(data.get("trigger_price", 0.0)),
+            timestamp_ms=int(data.get("timestamp_ms", 0)),
+            invalidation_price=float(data["invalidation_price"]) if data.get("invalidation_price") is not None else None,
+            execution_price=float(data["execution_price"]) if data.get("execution_price") is not None else None,
+            pattern_role=role,
+            phenomenon=str(data.get("phenomenon", "")),
+            reasons=list(data.get("reasons", [])),
+            metrics=dict(data.get("metrics", {})),
+            event_id=str(data.get("event_id", "")),
+            confidence=float(data.get("confidence", 1.0)),
+            price=float(data["price"]) if data.get("price") is not None else None,
+            status=status,
+            status_reason=str(data.get("status_reason", "")),
+            max_age_sec=float(data.get("max_age_sec", 30.0)),
+            confirmed_price=float(data["confirmed_price"]) if data.get("confirmed_price") is not None else None,
+            confirmed_time_ms=data.get("confirmed_time_ms"),
+            invalidated_price=float(data["invalidated_price"]) if data.get("invalidated_price") is not None else None,
+            invalidated_time_ms=data.get("invalidated_time_ms"),
+            expired_time_ms=data.get("expired_time_ms"),
+        )
