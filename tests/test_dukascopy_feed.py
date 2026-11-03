@@ -80,8 +80,8 @@ def test_dukascopy_feed_filters_unclosed_candles():
             assert feed.last_candle_timestamp["M5"] == c_closed.timestamp
 
 
-def test_market_buffer_strictly_blocks_latest_tick_when_ticks_disabled():
-    """Verify MarketBuffer.latest_tick returns None when enable_ticks=False, preventing tick-bleed."""
+def test_market_buffer_never_exposes_ticks_to_strategy_patterns():
+    """Tick quote telemetry remains available, but strategy-facing tick APIs stay disabled."""
     buf = MarketBuffer(enable_ticks=False)
     now = datetime.now(timezone.utc)
     ts_ms = int(now.timestamp() * 1000)
@@ -97,11 +97,11 @@ def test_market_buffer_strictly_blocks_latest_tick_when_ticks_disabled():
     assert buf.latest_quote_tick.bid == 3950.0
     assert round(buf.current_spread, 2) == 0.30
 
-    # When enable_ticks is True:
+    # Compatibility toggles cannot reactivate tick-based strategy evaluation.
     buf.set_enable_ticks(True)
-    assert buf.latest_tick is not None
-    assert buf.latest_tick.bid == 3950.0
-    assert len(buf.get_recent_ticks()) == 1
+    assert buf.latest_tick is None
+    assert buf.get_recent_ticks() == []
+    assert buf.latest_quote_tick.bid == 3950.0
 
 
 def test_execution_price_bid_ask_spread_calculation():
@@ -110,7 +110,7 @@ def test_execution_price_bid_ask_spread_calculation():
     now = datetime.now(timezone.utc)
     
     # Tick with spread 0.30 (Bid 3950.0, Ask 3950.30)
-    buf.add_tick(TickData(ts_ms=1000, bid=3950.0, ask=3950.30, symbol="XAUUSD"))
+    buf.add_tick(TickData(ts_ms=int(time.time() * 1000), bid=3950.0, ask=3950.30, symbol="XAUUSD"))
     
     ref_close = 3952.00
     exec_buy = buf.get_execution_price(SignalDirection.BUY, ref_close)
@@ -249,7 +249,7 @@ def test_p0_execution_price_spread_adjustment():
     """
     buf = MarketBuffer(enable_ticks=False, active_timeframe="M5")
     # Live spread = 0.35 pts
-    buf.add_tick(TickData(ts_ms=1000, bid=3950.0, ask=3950.35, symbol="XAUUSD"))
+    buf.add_tick(TickData(ts_ms=int(time.time() * 1000), bid=3950.0, ask=3950.35, symbol="XAUUSD"))
     assert round(buf.current_spread, 2) == 0.35
 
     now = datetime.now(timezone.utc)
