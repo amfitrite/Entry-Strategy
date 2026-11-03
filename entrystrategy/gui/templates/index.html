@@ -166,6 +166,10 @@
       background: #17181c;
       border: 1px solid #2d3038;
       border-radius: 8px;
+      -webkit-app-region: no-drag !important;
+      pointer-events: auto !important;
+      position: relative;
+      z-index: 100;
     }
     .btn-tf {
       background: transparent;
@@ -173,20 +177,25 @@
       color: #94a3b8;
       font-size: 11px;
       font-weight: 800;
-      padding: 2px 7px;
+      padding: 3px 8px;
       border-radius: 5px;
-      cursor: pointer;
+      cursor: pointer !important;
       transition: all 0.15s;
+      -webkit-app-region: no-drag !important;
+      pointer-events: auto !important;
+      user-select: none;
+      position: relative;
+      z-index: 101;
     }
     .btn-tf:hover {
       color: #fff;
       background: #252831;
     }
     .btn-tf.active {
-      background: #1e293b;
-      color: #38bdf8;
-      border-color: #0284c7;
-      box-shadow: 0 0 6px rgba(56, 189, 248, 0.25);
+      background: #0284c7 !important;
+      color: #ffffff !important;
+      border-color: #38bdf8 !important;
+      box-shadow: 0 0 8px rgba(56, 189, 248, 0.45);
     }
 
     /* Tick Analysis Mode Toggle */
@@ -900,10 +909,10 @@
         <strong id="spreadText" style="color:#fff;">1.4</strong>
       </div>
       <!-- Interactive Timeframe Selector: M1 and M5 (Default M5) -->
-      <div class="tf-pill-container" title="Pilih Timeframe Analisis Candle (M1 / M5)">
-        <span style="color:#94a3b8; font-size:10.5px; font-weight:800; margin-left:3px; margin-right:2px;">TF:</span>
-        <button class="btn-tf" id="btnTfM1" onclick="selectTimeframe('M1')">M1</button>
-        <button class="btn-tf active" id="btnTfM5" onclick="selectTimeframe('M5')">M5</button>
+      <div class="tf-pill-container" title="Pilih Timeframe Analisis Candle (M1 / M5)" onmousedown="event.stopPropagation()">
+        <span style="color:#94a3b8; font-size:10.5px; font-weight:800; margin-left:3px; margin-right:2px; user-select:none;">TF:</span>
+        <button type="button" class="btn-tf" id="btnTfM1" onclick="selectTimeframe('M1', event)" onmousedown="event.stopPropagation()">M1</button>
+        <button type="button" class="btn-tf active" id="btnTfM5" onclick="selectTimeframe('M5', event)" onmousedown="event.stopPropagation()">M5</button>
       </div>
 
       <div class="pill" title="Jumlah Candle Terkumpul dari Dukascopy Bank">
@@ -1270,14 +1279,46 @@
     let isSimpleMode = false;
     let isToggling = false;
 
-    async function selectTimeframe(tf) {
+    let currentTf = 'M5';
+
+    async function selectTimeframe(tf, ev) {
+      if (ev) {
+        ev.stopPropagation();
+        ev.preventDefault();
+      }
+      const cleanTf = (tf || 'M5').toUpperCase();
+      currentTf = cleanTf;
+
+      // 1. Immediate UI update (Zero-latency visual confirmation)
+      const btnM1 = document.getElementById('btnTfM1');
+      const btnM5 = document.getElementById('btnTfM5');
+      if (btnM1 && btnM5) {
+        if (cleanTf === 'M1') {
+          btnM1.classList.add('active');
+          btnM5.classList.remove('active');
+        } else {
+          btnM5.classList.add('active');
+          btnM1.classList.remove('active');
+        }
+      }
+      const barsEl = document.getElementById('barsCountText');
+      if (barsEl) {
+        barsEl.innerText = `Syncing ${cleanTf}...`;
+      }
+
+      // 2. Call backend
       try {
         if (window.pywebview && window.pywebview.api && window.pywebview.api.set_timeframe) {
-          await window.pywebview.api.set_timeframe(tf);
-          syncState();
+          const res = await window.pywebview.api.set_timeframe(cleanTf);
+          const data = (typeof res === 'string') ? JSON.parse(res) : res;
+          if (data && data.success) {
+            currentTf = data.timeframe;
+          }
         }
       } catch (e) {
         console.error("Error setting timeframe:", e);
+      } finally {
+        setTimeout(syncState, 50);
       }
     }
 

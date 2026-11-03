@@ -153,14 +153,14 @@ class DukascopyFeed:
             return []
 
     def set_timeframe(self, new_tf: str) -> List[Candle]:
-        """Switches active timeframe and performs instant historical synchronization."""
+        """Switches active timeframe for live stream aggregation."""
         clean_tf = new_tf.upper()
         if clean_tf not in ("M1", "M5"):
             return []
         with self._lock:
             self.timeframe = clean_tf
             self.last_candle_timestamp = None
-        return self.fetch_warmup_candles(timeframe=clean_tf, count=self.warmup_candles)
+        return []
 
     def _run_feed_loop(self):
         """Continuous live ingestor loop fetching ticks and completed bars."""
@@ -168,14 +168,22 @@ class DukascopyFeed:
             self._notify_status(False, "dukascopy-python not installed")
             return
 
-        # 1. Initial warmup
-        warmup = self.fetch_warmup_candles()
-        if warmup and self.on_bar_completed:
-            for bar in warmup:
+        # 1. Dual historical warmup (pre-warm both M5 and M1 so timeframe switching is 100% instant)
+        warmup_m5 = self.fetch_warmup_candles("M5", self.warmup_candles)
+        if warmup_m5 and self.on_bar_completed:
+            for bar in warmup_m5:
                 try:
                     self.on_bar_completed(bar, True)  # is_history=True
                 except Exception as e:
-                    logger.error(f"Error in on_bar_completed during warmup: {e}")
+                    logger.error(f"Error in on_bar_completed during M5 warmup: {e}")
+
+        warmup_m1 = self.fetch_warmup_candles("M1", self.warmup_candles)
+        if warmup_m1 and self.on_bar_completed:
+            for bar in warmup_m1:
+                try:
+                    self.on_bar_completed(bar, True)  # is_history=True
+                except Exception as e:
+                    logger.error(f"Error in on_bar_completed during M1 warmup: {e}")
 
         # Set initial tick search window (last 60 seconds)
         self.last_tick_time = datetime.now(timezone.utc) - timedelta(seconds=60)

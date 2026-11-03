@@ -94,10 +94,6 @@ class MarketBuffer:
     def total_candles(self) -> int:
         with self._lock:
             source = self._candles_m5 if self.active_timeframe == "M5" else self._candles_m1
-            if not source:
-                alt = self._candles_m1 if self.active_timeframe == "M5" else self._candles_m5
-                if alt:
-                    return len(alt)
             return len(source)
 
     @property

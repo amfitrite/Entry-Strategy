@@ -147,7 +147,7 @@ class EntryStrategyService:
                         self.total_sell_signals += 1
 
     def set_timeframe(self, tf: str) -> Dict[str, Any]:
-        """Switches active candle analysis timeframe between M1 and M5 with instant Dukascopy sync."""
+        """Switches active candle analysis timeframe between M1 and M5 with instant zero-lag response."""
         tf_clean = tf.upper()
         if tf_clean not in ("M1", "M5"):
             return {"success": False, "error": f"Unsupported timeframe: {tf}"}
@@ -162,11 +162,16 @@ class EntryStrategyService:
                     sig.status = SignalStatus.EXPIRED
                     sig.status_reason = f"Perpindahan timeframe ke {tf_clean}"
 
-        # Sync historical candles for new timeframe from Dukascopy
-        warmup_bars = self.dukascopy_feed.set_timeframe(tf_clean)
-        if warmup_bars:
-            for bar in warmup_bars:
-                self.buffer.add_completed_candle(bar)
+        self.dukascopy_feed.set_timeframe(tf_clean)
+
+        # If buffer for this timeframe has not been populated yet, trigger background sync
+        if self.buffer.total_candles == 0:
+            def _topup_sync():
+                bars = self.dukascopy_feed.fetch_warmup_candles(tf_clean, self.dukascopy_feed.warmup_candles)
+                for b in bars:
+                    self.buffer.add_completed_candle(b)
+                self._evaluate_patterns()
+            threading.Thread(target=_topup_sync, daemon=True, name=f"TopupSync-{tf_clean}").start()
 
         self._evaluate_patterns()
         logger.info(f"Switched active timeframe to {self.active_timeframe} (Buffer candles: {self.buffer.total_candles})")
