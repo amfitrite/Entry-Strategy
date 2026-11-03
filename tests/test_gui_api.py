@@ -106,3 +106,89 @@ def test_matrix_window_api_recent_signals_history():
     assert len(state4["recent_signals"]) == 0
 
     service.stop()
+
+
+def test_ui_template_tier_icons_and_apex_sorting():
+    """Verify index.html contains tier icons, top-left apex tier sorting, and grading modal population."""
+    import pathlib
+    template_path = pathlib.Path(__file__).parent.parent / "entrystrategy" / "gui" / "templates" / "index.html"
+    assert template_path.exists(), "index.html template missing"
+    html = template_path.read_text(encoding="utf-8")
+
+    # 1. Distinct tier icons exist
+    assert "👑" in html, "👑 SSS Crown icon missing"
+    assert "💠" in html, "💠 SS Prismatic crystal icon missing"
+    assert "💎" in html, "💎 S Diamond icon missing"
+    assert "🎖️" in html, "🎖️ A Medal icon missing"
+    assert "🎯" in html, "🎯 B Target icon missing"
+    assert "⚪" in html, "⚪ C Circle icon missing"
+    assert "⛔" in html, "⛔ D Stop disc icon missing"
+
+    # 2. JavaScript helper functions exist
+    assert "function getTierIcon(tier)" in html
+    assert "function getTierWeight(tier)" in html
+    assert "sortByTierApex = true" in html
+
+    # 3. Top-Left Apex priority sort in renderSignals
+    assert "getTierWeight(tierB) - getTierWeight(tierA)" in html
+    assert "scB - scA" in html
+
+    # 4. Modal grading population
+    assert "function populateModalGrading(sig, p)" in html
+    assert "modalGradeBadge" in html
+    assert "modalCappedNotice" in html
+    assert "modalGradeReasonsContainer" in html
+    assert "compPatternQuality" in html
+    assert "compMarketStructure" in html
+    assert "compLocationQuality" in html
+    assert "compCandleConfirm" in html
+    assert "compExecutionQuality" in html
+
+    # 5. Distinct lifecycle status colors, icons & classes
+    assert ".status-pending" in html
+    assert ".status-confirmed" in html
+    assert ".status-active" in html
+    assert ".status-invalidated" in html
+    assert ".status-expired" in html
+    assert "card-status-pending-confirmation" in html
+    assert "card-status-confirmed" in html
+    assert "row-status-pending" in html
+    assert "opacity: 0.65" in html, "Pending semi-transparency style missing"
+    assert "kpiPending" in html
+    assert "btnHistFilterPending" in html
+    assert "⏳" in html, "⏳ Pending icon missing"
+    assert "✔" in html, "✔ Confirmed icon missing"
+    assert "🟢" in html, "🟢 Active icon missing"
+    assert "✖" in html, "✖ Invalidated icon missing"
+    assert "⏱" in html, "⏱ Expired icon missing"
+
+    # 6. Distinct tier outer glows on cards and badges
+    for tier_slug in ["sss", "ss", "s", "a", "b", "c", "d"]:
+        assert f".signal-card.card-tier-{tier_slug}" in html, f"Card tier outer glow missing for {tier_slug}"
+        assert f".grade-{tier_slug}" in html, f"Grade badge missing for {tier_slug}"
+        assert f"tr.row-tier-{tier_slug}" in html, f"History row tier accent missing for {tier_slug}"
+
+
+def test_gui_window_geometry_sanitization():
+    """Verify that off-screen minimized coordinates (-32000) are never captured or loaded."""
+    config = AppConfig(enable_simulation=False)
+    service = EntryStrategyService(config, start_servers=False)
+    api = MatrixWindowAPI(service)
+
+    # 1. Mock window with minimized coordinates
+    mock_win = MockWebviewWindow()
+    mock_win.x = -32000
+    mock_win.y = -32000
+    mock_win.width = 160
+    mock_win.height = 30
+    api.set_window(mock_win)
+
+    # 2. Query geometry: should NOT return negative off-screen coordinates
+    geom = api._collect_window_geometry()
+    assert geom.get("x") != -32000
+    assert geom.get("y") != -32000
+
+    service.stop()
+
+
+

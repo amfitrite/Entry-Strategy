@@ -1,4 +1,4 @@
-"""Pattern package: 40 candle-based entry strategy families for M1/M5."""
+"""Pattern package: 40 candle-based and 16 volume/order-flow entry strategy families."""
 
 from entrystrategy.engine.patterns.candlestick import (
     CandlestickReversalPattern,
@@ -48,8 +48,27 @@ from entrystrategy.engine.patterns.swing_geometry import (
     MicroSwingFailurePattern,
     ThreePushPattern,
 )
+from entrystrategy.engine.patterns.volume_orderflow import (
+    RelativeVolumeExpansionPattern,
+    LargeVolumeBubblePattern,
+    VolumeClimaxReversalPattern,
+    VolumeBreakoutPattern,
+    CVDDivergencePattern,
+    CVDReversalPattern,
+    CVDTrendContinuationPattern,
+    BullishAbsorptionPattern,
+    BearishAbsorptionPattern,
+    DeltaExhaustionPattern,
+    BidAskImbalancePattern,
+    StackedImbalancePattern,
+    POCReclaimPattern,
+    VAHRejectionPattern,
+    VALRejectionPattern,
+    HVNLVNReactionPattern,
+)
 
 __all__ = [
+    # 40 Candle-Based Price Action Patterns
     "CandlestickReversalPattern",
     "CandlestickContinuationPattern",
     "MultiCandleReversalPattern",
@@ -90,4 +109,21 @@ __all__ = [
     "MicroSwingBreakPattern",
     "MicroSwingFailurePattern",
     "ThreePushPattern",
+    # 16 Volume and Order Flow Patterns (41 - 56)
+    "RelativeVolumeExpansionPattern",
+    "LargeVolumeBubblePattern",
+    "VolumeClimaxReversalPattern",
+    "VolumeBreakoutPattern",
+    "CVDDivergencePattern",
+    "CVDReversalPattern",
+    "CVDTrendContinuationPattern",
+    "BullishAbsorptionPattern",
+    "BearishAbsorptionPattern",
+    "DeltaExhaustionPattern",
+    "BidAskImbalancePattern",
+    "StackedImbalancePattern",
+    "POCReclaimPattern",
+    "VAHRejectionPattern",
+    "VALRejectionPattern",
+    "HVNLVNReactionPattern",
 ]

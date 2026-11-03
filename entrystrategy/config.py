@@ -30,3 +30,6 @@ class AppConfig:
     # Session state persistence ("Continue where you left off")
     persist_session: bool = True
     state_filepath: Optional[str] = None
+
+    # Volume and Order Flow Strategy Families (Patterns 41 - 56)
+    enable_volume_strategies: bool = False

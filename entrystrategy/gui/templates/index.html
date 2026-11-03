@@ -456,42 +456,181 @@
       text-transform: uppercase;
     }
 
-    /* Lifecycle Status Badges */
+    /* Lifecycle Status Badges - Vivid & Distinct Colors */
     .status-pill {
       font-size: 9.5px;
       font-weight: 800;
-      padding: 2px 7px;
+      padding: 2.5px 8px;
       border-radius: 4px;
-      letter-spacing: 0.3px;
+      letter-spacing: 0.4px;
       text-transform: uppercase;
       font-variant-numeric: tabular-nums;
+      display: inline-flex;
+      align-items: center;
+      gap: 3.5px;
+      white-space: nowrap;
+      line-height: 1.2;
     }
     .status-active {
-      background: rgba(16, 185, 129, 0.22);
-      color: #10b981;
-      border: 1px solid rgba(16, 185, 129, 0.5);
+      background: rgba(16, 185, 129, 0.24);
+      color: #34d399;
+      border: 1.5px solid #10b981;
+      box-shadow: 0 0 8px rgba(16, 185, 129, 0.35);
     }
     .status-pending {
-      background: rgba(245, 158, 11, 0.2);
-      color: #f59e0b;
-      border: 1px solid rgba(245, 158, 11, 0.5);
+      background: rgba(245, 158, 11, 0.18);
+      color: #fbbf24;
+      border: 1.5px dashed #f59e0b;
+      box-shadow: 0 0 8px rgba(245, 158, 11, 0.25);
+      animation: pending-glow 2.5s infinite ease-in-out;
     }
     .status-confirmed {
-      background: rgba(59, 130, 246, 0.25);
-      color: #60a5fa;
-      border: 1px solid #3b82f6;
-      box-shadow: 0 0 8px rgba(59, 130, 246, 0.3);
+      background: rgba(6, 182, 212, 0.26);
+      color: #38bdf8;
+      border: 1.5px solid #06b6d4;
+      box-shadow: 0 0 10px rgba(6, 182, 212, 0.45);
     }
     .status-invalidated {
-      background: rgba(239, 68, 68, 0.2);
+      background: rgba(239, 68, 68, 0.25);
       color: #f87171;
-      border: 1px solid rgba(239, 68, 68, 0.5);
+      border: 1.5px solid #ef4444;
+      box-shadow: 0 0 8px rgba(239, 68, 68, 0.35);
     }
     .status-expired {
-      background: #232731;
-      color: #949ba4;
-      border: 1px solid #3e4451;
+      background: rgba(100, 116, 139, 0.22);
+      color: #94a3b8;
+      border: 1.5px solid #475569;
     }
+
+    @keyframes pending-glow {
+      0%, 100% { border-color: #f59e0b; box-shadow: 0 0 6px rgba(245, 158, 11, 0.25); }
+      50% { border-color: #fbbf24; box-shadow: 0 0 12px rgba(251, 191, 36, 0.45); }
+    }
+
+    /* Signal Card Status Accents (Clear visual distinction on Radar) */
+    .signal-card.card-status-pending-confirmation,
+    .signal-card.card-status-pending {
+      border-top: 3px dashed #f59e0b !important;
+      opacity: 0.65;
+      box-shadow: 0 0 8px rgba(245, 158, 11, 0.12);
+      filter: saturate(85%);
+      transition: opacity 0.2s ease, filter 0.2s ease, transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .signal-card.card-status-pending-confirmation:hover,
+    .signal-card.card-status-pending:hover {
+      opacity: 0.95;
+      filter: saturate(100%);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    }
+    .signal-card.card-status-confirmed {
+      border-top: 3px solid #06b6d4 !important;
+      box-shadow: 0 0 14px rgba(6, 182, 212, 0.25);
+      opacity: 1;
+    }
+    .signal-card.card-status-invalidated {
+      border-top: 3px solid #ef4444 !important;
+      opacity: 0.85;
+    }
+    .signal-card.card-status-expired {
+      border-top: 3px solid #475569 !important;
+      opacity: 0.65;
+      filter: grayscale(25%);
+    }
+    .signal-card.card-status-active {
+      border-top: 3px solid #10b981 !important;
+      opacity: 1;
+    }
+
+    /* History Journal Row Status Styles */
+    tr.row-status-pending-confirmation,
+    tr.row-status-pending {
+      opacity: 0.65;
+      background: rgba(245, 158, 11, 0.04);
+      transition: opacity 0.15s ease, background 0.15s ease;
+    }
+    tr.row-status-pending-confirmation:hover,
+    tr.row-status-pending:hover {
+      opacity: 0.98;
+      background: rgba(245, 158, 11, 0.10);
+    }
+    tr.row-status-confirmed {
+      opacity: 1;
+    }
+
+    /* --- Distinct Tier Outer Glows for Signal Cards --- */
+    .signal-card.card-tier-sss {
+      box-shadow: 0 0 18px rgba(245, 158, 11, 0.40), 0 0 4px rgba(251, 191, 36, 0.55), 0 4px 14px rgba(0, 0, 0, 0.4) !important;
+      border-color: rgba(245, 158, 11, 0.60) !important;
+    }
+    .signal-card.card-tier-sss:hover {
+      box-shadow: 0 0 28px rgba(245, 158, 11, 0.65), 0 0 8px rgba(251, 191, 36, 0.85), 0 6px 20px rgba(0, 0, 0, 0.6) !important;
+    }
+
+    .signal-card.card-tier-ss {
+      box-shadow: 0 0 16px rgba(6, 182, 212, 0.35), 0 0 4px rgba(56, 189, 248, 0.50), 0 4px 14px rgba(0, 0, 0, 0.4) !important;
+      border-color: rgba(6, 182, 212, 0.55) !important;
+    }
+    .signal-card.card-tier-ss:hover {
+      box-shadow: 0 0 24px rgba(6, 182, 212, 0.60), 0 0 7px rgba(56, 189, 248, 0.75), 0 6px 20px rgba(0, 0, 0, 0.6) !important;
+    }
+
+    .signal-card.card-tier-s {
+      box-shadow: 0 0 14px rgba(16, 185, 129, 0.32), 0 0 3px rgba(52, 211, 153, 0.45), 0 4px 14px rgba(0, 0, 0, 0.4) !important;
+      border-color: rgba(16, 185, 129, 0.50) !important;
+    }
+    .signal-card.card-tier-s:hover {
+      box-shadow: 0 0 22px rgba(16, 185, 129, 0.55), 0 0 6px rgba(52, 211, 153, 0.70), 0 6px 20px rgba(0, 0, 0, 0.6) !important;
+    }
+
+    .signal-card.card-tier-a {
+      box-shadow: 0 0 12px rgba(59, 130, 246, 0.30), 0 0 3px rgba(96, 165, 250, 0.40), 0 4px 14px rgba(0, 0, 0, 0.4) !important;
+      border-color: rgba(59, 130, 246, 0.45) !important;
+    }
+    .signal-card.card-tier-a:hover {
+      box-shadow: 0 0 18px rgba(59, 130, 246, 0.50), 0 0 5px rgba(96, 165, 250, 0.65), 0 6px 20px rgba(0, 0, 0, 0.6) !important;
+    }
+
+    .signal-card.card-tier-b {
+      box-shadow: 0 0 10px rgba(234, 179, 8, 0.25), 0 0 2px rgba(250, 204, 21, 0.35), 0 4px 14px rgba(0, 0, 0, 0.4) !important;
+      border-color: rgba(234, 179, 8, 0.40) !important;
+    }
+    .signal-card.card-tier-b:hover {
+      box-shadow: 0 0 16px rgba(234, 179, 8, 0.42), 0 0 4px rgba(250, 204, 21, 0.55), 0 6px 20px rgba(0, 0, 0, 0.6) !important;
+    }
+
+    .signal-card.card-tier-c {
+      box-shadow: 0 0 8px rgba(249, 115, 22, 0.22), 0 4px 14px rgba(0, 0, 0, 0.4) !important;
+      border-color: rgba(249, 115, 22, 0.35) !important;
+    }
+    .signal-card.card-tier-c:hover {
+      box-shadow: 0 0 14px rgba(249, 115, 22, 0.38), 0 6px 20px rgba(0, 0, 0, 0.6) !important;
+    }
+
+    .signal-card.card-tier-d {
+      box-shadow: 0 0 6px rgba(100, 116, 139, 0.18), 0 4px 14px rgba(0, 0, 0, 0.4) !important;
+      border-color: rgba(100, 116, 139, 0.30) !important;
+    }
+    .signal-card.card-tier-d:hover {
+      box-shadow: 0 0 10px rgba(100, 116, 139, 0.30), 0 6px 20px rgba(0, 0, 0, 0.6) !important;
+    }
+
+    /* History Table Row Tier Accents */
+    tr.row-tier-sss td:first-child { border-left: 3px solid #f59e0b; }
+    tr.row-tier-ss td:first-child { border-left: 3px solid #06b6d4; }
+    tr.row-tier-s td:first-child { border-left: 3px solid #10b981; }
+    tr.row-tier-a td:first-child { border-left: 3px solid #3b82f6; }
+    tr.row-tier-b td:first-child { border-left: 3px solid #eab308; }
+    tr.row-tier-c td:first-child { border-left: 3px solid #f97316; }
+    tr.row-tier-d td:first-child { border-left: 3px solid #64748b; }
+
+    /* Modal Grading Box Tier Glows */
+    .modal-grading-box.modal-tier-sss { border-color: rgba(245, 158, 11, 0.6) !important; box-shadow: 0 0 16px rgba(245, 158, 11, 0.25); }
+    .modal-grading-box.modal-tier-ss { border-color: rgba(6, 182, 212, 0.6) !important; box-shadow: 0 0 14px rgba(6, 182, 212, 0.22); }
+    .modal-grading-box.modal-tier-s { border-color: rgba(16, 185, 129, 0.6) !important; box-shadow: 0 0 12px rgba(16, 185, 129, 0.20); }
+    .modal-grading-box.modal-tier-a { border-color: rgba(59, 130, 246, 0.5) !important; box-shadow: 0 0 10px rgba(59, 130, 246, 0.18); }
+    .modal-grading-box.modal-tier-b { border-color: rgba(234, 179, 8, 0.45) !important; box-shadow: 0 0 8px rgba(234, 179, 8, 0.15); }
+    .modal-grading-box.modal-tier-c { border-color: rgba(249, 115, 22, 0.4) !important; box-shadow: 0 0 7px rgba(249, 115, 22, 0.12); }
+    .modal-grading-box.modal-tier-d { border-color: rgba(100, 116, 139, 0.35) !important; box-shadow: 0 0 6px rgba(100, 116, 139, 0.10); }
 
     .time-badge {
       font-size: 11px;
@@ -938,8 +1077,9 @@
       color: #f8fafc;
       font-family: 'Consolas', 'SF Mono', monospace;
     }
-    .kpi-card.kpi-confirmed .kpi-val { color: #10b981; }
-    .kpi-card.kpi-invalidated .kpi-val { color: #ef4444; }
+    .kpi-card.kpi-pending .kpi-val { color: #fbbf24; }
+    .kpi-card.kpi-confirmed .kpi-val { color: #38bdf8; }
+    .kpi-card.kpi-invalidated .kpi-val { color: #f87171; }
     .kpi-card.kpi-expired .kpi-val { color: #94a3b8; }
 
     /* History Table */
@@ -1038,6 +1178,136 @@
       justify-content: center;
       padding: 60px 20px;
       color: #64748b;
+    }
+
+    /* Technical Grade Badges & Visuals */
+    .grade-pill {
+      font-size: 10px;
+      font-weight: 800;
+      padding: 2px 7px;
+      border-radius: 4px;
+      letter-spacing: 0.3px;
+      font-variant-numeric: tabular-nums;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      text-transform: uppercase;
+      line-height: 1.2;
+      box-sizing: border-box;
+      white-space: nowrap;
+    }
+    .grade-sss {
+      background: linear-gradient(135deg, #f59e0b, #fbbf24, #d97706);
+      color: #000;
+      box-shadow: 0 0 14px rgba(245, 158, 11, 0.70), 0 0 4px rgba(251, 191, 36, 0.90);
+      border: 1px solid rgba(255, 255, 255, 0.45);
+      font-weight: 900;
+    }
+    .grade-ss {
+      background: linear-gradient(135deg, #06b6d4, #3b82f6);
+      color: #fff;
+      box-shadow: 0 0 12px rgba(6, 182, 212, 0.65), 0 0 4px rgba(56, 189, 248, 0.80);
+      border: 1px solid rgba(255, 255, 255, 0.35);
+      font-weight: 900;
+    }
+    .grade-s {
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: #fff;
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.60), 0 0 3px rgba(52, 211, 153, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.30);
+      font-weight: 800;
+    }
+    .grade-a {
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      color: #fff;
+      box-shadow: 0 0 9px rgba(59, 130, 246, 0.55), 0 0 3px rgba(96, 165, 250, 0.70);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      font-weight: 800;
+    }
+    .grade-b {
+      background: linear-gradient(135deg, #eab308, #ca8a04);
+      color: #000;
+      box-shadow: 0 0 8px rgba(234, 179, 8, 0.50), 0 0 2px rgba(250, 204, 21, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.20);
+      font-weight: 800;
+    }
+    .grade-c {
+      background: linear-gradient(135deg, #f97316, #ea580c);
+      color: #fff;
+      box-shadow: 0 0 7px rgba(249, 115, 22, 0.45), 0 0 2px rgba(251, 146, 60, 0.60);
+      border: 1px solid rgba(255, 255, 255, 0.20);
+      font-weight: 800;
+    }
+    .grade-d {
+      background: linear-gradient(135deg, #64748b, #475569);
+      color: #fff;
+      box-shadow: 0 0 6px rgba(100, 116, 139, 0.40), 0 0 2px rgba(148, 163, 184, 0.50);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      font-weight: 700;
+    }
+
+    .tf-badge {
+      font-size: 9.5px;
+      font-weight: 800;
+      color: #cbd5e1;
+      background: #242938;
+      border: 1px solid #3e475e;
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .grade-mini-strip {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 9.5px;
+      color: #94a3b8;
+      background: rgba(0, 0, 0, 0.25);
+      padding: 3px 6px;
+      border-radius: 4px;
+      font-variant-numeric: tabular-nums;
+      flex-wrap: wrap;
+    }
+    .grade-mini-strip span {
+      background: #171b26;
+      padding: 1px 4px;
+      border-radius: 3px;
+      border: 1px solid #232938;
+    }
+
+    .comp-box {
+      background: #171b26;
+      border: 1px solid #23293a;
+      border-radius: 4px;
+      padding: 6px 8px;
+    }
+    .comp-label {
+      font-size: 9.5px;
+      color: #94a3b8;
+      font-weight: 700;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .comp-score {
+      font-size: 14px;
+      font-weight: 800;
+      color: #fff;
+      font-variant-numeric: tabular-nums;
+      margin: 2px 0;
+    }
+    .comp-bar-bg {
+      width: 100%;
+      height: 4px;
+      background: #242c3d;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .comp-bar-fill {
+      height: 100%;
+      background: #3b82f6;
+      border-radius: 2px;
     }
 
     /* Toast Notification for Continue where you left off */
@@ -1165,19 +1435,42 @@
         </button>
       </div>
 
-      <!-- Radar Direction Filter Group (Active on Radar View) -->
-      <div class="filter-group" id="radarFilterGroup">
+      <!-- Radar Direction & Tier Filter Group (Active on Radar View) -->
+      <div class="filter-group" id="radarFilterGroup" style="flex-wrap:wrap; gap:4px;">
         <button class="filter-btn active" id="btnFilterAll" onclick="setDirectionFilter('ALL', this)">Semua Sinyal (0)</button>
         <button class="filter-btn" id="btnFilterBuy" onclick="setDirectionFilter('BUY', this)" style="color:var(--accent-green);">BUY Saja (0)</button>
         <button class="filter-btn" id="btnFilterSell" onclick="setDirectionFilter('SELL', this)" style="color:var(--accent-red);">SELL Saja (0)</button>
+        <span style="color:#475569; font-size:12px; margin:0 2px;">|</span>
+        <button class="filter-btn active" id="btnGradeFilterAll" onclick="setGradeFilter('ALL', this)">Semua Grade</button>
+        <button class="filter-btn" id="btnGradeFilterSSS" onclick="setGradeFilter('SSS', this)" style="color:#fbbf24;">👑 SSS</button>
+        <button class="filter-btn" id="btnGradeFilterSS" onclick="setGradeFilter('SS+', this)" style="color:#38bdf8;">💠 SS+</button>
+        <button class="filter-btn" id="btnGradeFilterS" onclick="setGradeFilter('S+', this)" style="color:#34d399;">💎 S+</button>
+        <button class="filter-btn" id="btnGradeFilterA" onclick="setGradeFilter('A+', this)" style="color:#818cf8;">🎖️ A+</button>
+        <span style="color:#475569; font-size:12px; margin:0 2px;">|</span>
+        <button class="filter-btn active" id="btnSortTier" onclick="toggleTierSort(this)" title="Susun otomatis: Tier tertinggi & Score tertinggi di posisi Kiri Atas">👑 Susun Tier Apex (Kiri Atas)</button>
       </div>
 
-      <!-- History Status Filter Group (Active on History View) -->
-      <div class="filter-group" id="historyFilterGroup" style="display:none;">
+      <!-- History Status, TF & Grade Filter Group (Active on History View) -->
+      <div class="filter-group" id="historyFilterGroup" style="display:none; flex-wrap:wrap; gap:4px;">
         <button class="filter-btn active" id="btnHistFilterAll" onclick="setHistoryFilter('ALL', this)">Semua Log (0)</button>
-        <button class="filter-btn" id="btnHistFilterConf" onclick="setHistoryFilter('CONFIRMED', this)" style="color:#10b981;">✔ Confirmed (0)</button>
+        <button class="filter-btn" id="btnHistFilterPending" onclick="setHistoryFilter('PENDING_CONFIRMATION', this)" style="color:#fbbf24;">⏳ Pending (0)</button>
+        <button class="filter-btn" id="btnHistFilterConf" onclick="setHistoryFilter('CONFIRMED', this)" style="color:#38bdf8;">✔ Confirmed (0)</button>
         <button class="filter-btn" id="btnHistFilterInval" onclick="setHistoryFilter('INVALIDATED', this)" style="color:#ef4444;">✖ Invalidated (0)</button>
         <button class="filter-btn" id="btnHistFilterExp" onclick="setHistoryFilter('EXPIRED', this)" style="color:#94a3b8;">⏱ Expired (0)</button>
+        <span style="color:#475569; font-size:12px; margin:0 2px;">|</span>
+        <button class="filter-btn active" id="btnHistTfAll" onclick="setHistoryTfFilter('ALL', this)">Semua TF</button>
+        <button class="filter-btn" id="btnHistTfM1" onclick="setHistoryTfFilter('M1', this)">M1</button>
+        <button class="filter-btn" id="btnHistTfM5" onclick="setHistoryTfFilter('M5', this)">M5</button>
+        <button class="filter-btn" id="btnHistTfM15" onclick="setHistoryTfFilter('M15', this)">M15</button>
+        <span style="color:#475569; font-size:12px; margin:0 2px;">|</span>
+        <button class="filter-btn active" id="btnHistGradeAll" onclick="setHistoryGradeFilter('ALL', this)">Semua Grade</button>
+        <button class="filter-btn" id="btnHistGradeSSS" onclick="setHistoryGradeFilter('SSS', this)" style="color:#fbbf24;">👑 SSS</button>
+        <button class="filter-btn" id="btnHistGradeSS" onclick="setHistoryGradeFilter('SS', this)" style="color:#38bdf8;">💠 SS</button>
+        <button class="filter-btn" id="btnHistGradeS" onclick="setHistoryGradeFilter('S', this)" style="color:#34d399;">💎 S</button>
+        <button class="filter-btn" id="btnHistGradeA" onclick="setHistoryGradeFilter('A', this)" style="color:#818cf8;">🎖️ A</button>
+        <button class="filter-btn" id="btnHistGradeB" onclick="setHistoryGradeFilter('B', this)" style="color:#eab308;">🎯 B</button>
+        <button class="filter-btn" id="btnHistGradeC" onclick="setHistoryGradeFilter('C', this)" style="color:#f97316;">⚪ C</button>
+        <button class="filter-btn" id="btnHistGradeD" onclick="setHistoryGradeFilter('D', this)" style="color:#64748b;">⛔ D</button>
       </div>
     </div>
 
@@ -1215,22 +1508,46 @@
     <!-- View 2: Jurnal Riwayat Sinyal -->
     <div id="viewHistoryContainer" style="display:none; flex-direction:column; flex:1; width:100%; height:100%; overflow:hidden;">
       <!-- Session KPI Summary Banner -->
-      <div class="history-summary-strip">
+      <div class="history-summary-strip" style="flex-wrap:wrap; gap:8px;">
         <div class="kpi-card">
-          <span class="kpi-label">TOTAL SINYAL TERDETEKSI</span>
+          <span class="kpi-label">TOTAL LOG SINYAL</span>
           <span class="kpi-val" id="kpiTotalSignals">0</span>
         </div>
-        <div class="kpi-card kpi-confirmed">
-          <span class="kpi-label">✔ TERKONFIRMASI (TP TARGET)</span>
-          <span class="kpi-val" id="kpiConfirmed">0 <small id="kpiConfirmedPct" style="font-size:11px; opacity:0.8;">(0%)</small></span>
+        <div class="kpi-card" style="border-left: 3px solid #f59e0b;">
+          <span class="kpi-label">DISTRIBUSI TIER GRADE</span>
+          <div style="display:flex; gap:4px; margin-top:4px; flex-wrap:wrap;">
+            <span class="grade-pill grade-sss" id="kpiGradeSSS">👑 SSS: 0</span>
+            <span class="grade-pill grade-ss" id="kpiGradeSS">💠 SS: 0</span>
+            <span class="grade-pill grade-s" id="kpiGradeS">💎 S: 0</span>
+            <span class="grade-pill grade-a" id="kpiGradeA">🎖️ A: 0</span>
+            <span class="grade-pill grade-b" id="kpiGradeB">🎯 B: 0</span>
+            <span class="grade-pill grade-c" id="kpiGradeC">⚪ C: 0</span>
+            <span class="grade-pill grade-d" id="kpiGradeD">⛔ D: 0</span>
+          </div>
         </div>
-        <div class="kpi-card kpi-invalidated">
-          <span class="kpi-label">✖ BATAL / STOP LOSS (INVAL)</span>
-          <span class="kpi-val" id="kpiInvalidated">0 <small id="kpiInvalidatedPct" style="font-size:11px; opacity:0.8;">(0%)</small></span>
+        <div class="kpi-card" style="border-left: 3px solid #3b82f6;">
+          <span class="kpi-label">DISTRIBUSI TIMEFRAME</span>
+          <div style="display:flex; gap:6px; margin-top:4px; font-size:11.5px; font-weight:800;">
+            <span style="color:#60a5fa;" id="kpiTfM1">M1: 0</span>
+            <span style="color:#a78bfa;" id="kpiTfM5">M5: 0</span>
+            <span style="color:#f472b6;" id="kpiTfM15">M15: 0</span>
+          </div>
         </div>
-        <div class="kpi-card kpi-expired">
-          <span class="kpi-label">⏱ KADALUWARSA (BAR TIMEOUT)</span>
-          <span class="kpi-val" id="kpiExpired">0 <small id="kpiExpiredPct" style="font-size:11px; opacity:0.8;">(0%)</small></span>
+        <div class="kpi-card kpi-pending" style="border-left: 3px solid #f59e0b;">
+          <span class="kpi-label">⏳ STATUS PENDING</span>
+          <span class="kpi-val" id="kpiPending" style="color:#fbbf24;">0 <small id="kpiPendingPct" style="font-size:11px; opacity:0.8;">(0%)</small></span>
+        </div>
+        <div class="kpi-card kpi-confirmed" style="border-left: 3px solid #06b6d4;">
+          <span class="kpi-label">✔ STATUS CONFIRMED</span>
+          <span class="kpi-val" id="kpiConfirmed" style="color:#38bdf8;">0 <small id="kpiConfirmedPct" style="font-size:11px; opacity:0.8;">(0%)</small></span>
+        </div>
+        <div class="kpi-card kpi-invalidated" style="border-left: 3px solid #ef4444;">
+          <span class="kpi-label">✖ STATUS INVALIDATED</span>
+          <span class="kpi-val" id="kpiInvalidated" style="color:#f87171;">0 <small id="kpiInvalidatedPct" style="font-size:11px; opacity:0.8;">(0%)</small></span>
+        </div>
+        <div class="kpi-card kpi-expired" style="border-left: 3px solid #64748b;">
+          <span class="kpi-label">⏱ STATUS EXPIRED</span>
+          <span class="kpi-val" id="kpiExpired" style="color:#94a3b8;">0 <small id="kpiExpiredPct" style="font-size:11px; opacity:0.8;">(0%)</small></span>
         </div>
       </div>
 
@@ -1239,14 +1556,16 @@
         <table class="history-table">
           <thead>
             <tr>
-              <th style="width: 85px;">WAKTU</th>
+              <th style="width: 80px;">WAKTU</th>
               <th>STRATEGI & METODE</th>
-              <th style="width: 75px; text-align:center;">ARAH</th>
-              <th style="width: 100px; text-align:right;">TRIGGER</th>
-              <th style="width: 105px; text-align:right;">EST FILL</th>
-              <th style="width: 100px; text-align:right;">INVALID (SL)</th>
-              <th style="width: 130px; text-align:center;">STATUS AKHIR</th>
-              <th style="width: 75px; text-align:center;">AKSI</th>
+              <th style="width: 55px; text-align:center;">TF</th>
+              <th style="width: 70px; text-align:center;">ARAH</th>
+              <th style="width: 85px; text-align:center;">GRADE</th>
+              <th style="width: 90px; text-align:right;">TRIGGER</th>
+              <th style="width: 95px; text-align:right;">EST FILL</th>
+              <th style="width: 90px; text-align:right;">INVALID</th>
+              <th style="width: 110px; text-align:center;">STATUS</th>
+              <th style="width: 65px; text-align:center;">AKSI</th>
             </tr>
           </thead>
           <tbody id="historyTableBody">
@@ -1322,6 +1641,58 @@
           Deskripsi singkat logika keluarga strategi ini...
         </div>
 
+        <!-- Technical Tier Grading Section -->
+        <div class="modal-grading-box" id="modalGradingSection" style="background:#131620; border:1px solid #232b3e; border-radius:6px; padding:12px; margin-top:8px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="font-size:11px; font-weight:800; color:#94a3b8; text-transform:uppercase;">TECHNICAL GRADE:</span>
+              <span class="grade-pill grade-sss" id="modalGradeBadge" style="font-size:12px; padding:3px 10px;">👑 SSS 97.2</span>
+              <span class="tf-badge" id="modalGradeTf" style="font-size:10px;">M5</span>
+            </div>
+            <div style="font-size:11px; color:#94a3b8;">
+              Confidence: <strong id="modalGradeConfidence" style="color:#60a5fa;">95%</strong> | Ver: <span id="modalGradeVer">1.0</span>
+            </div>
+          </div>
+
+          <!-- Gating / Capped notice banner -->
+          <div id="modalCappedNotice" style="display:none; background:rgba(245, 158, 11, 0.15); border:1px solid #f59e0b; border-radius:4px; padding:6px 10px; font-size:11px; color:#fbbf24; margin-bottom:8px;"></div>
+
+          <!-- 5 Component Breakdown Bars -->
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap:6px; margin-bottom:8px;">
+            <div class="comp-box">
+              <div class="comp-label">Pattern Quality (30%)</div>
+              <div class="comp-score" id="compPatternQuality">95</div>
+              <div class="comp-bar-bg"><div class="comp-bar-fill" id="barPatternQuality" style="width:95%;"></div></div>
+            </div>
+            <div class="comp-box">
+              <div class="comp-label">Market Structure (20%)</div>
+              <div class="comp-score" id="compMarketStructure">92</div>
+              <div class="comp-bar-bg"><div class="comp-bar-fill" id="barMarketStructure" style="width:92%;"></div></div>
+            </div>
+            <div class="comp-box">
+              <div class="comp-label">Location Quality (20%)</div>
+              <div class="comp-score" id="compLocationQuality">90</div>
+              <div class="comp-bar-bg"><div class="comp-bar-fill" id="barLocationQuality" style="width:90%;"></div></div>
+            </div>
+            <div class="comp-box">
+              <div class="comp-label">Candle Confirm (15%)</div>
+              <div class="comp-score" id="compCandleConfirm">88</div>
+              <div class="comp-bar-bg"><div class="comp-bar-fill" id="barCandleConfirm" style="width:88%;"></div></div>
+            </div>
+            <div class="comp-box">
+              <div class="comp-label">Execution Quality (15%)</div>
+              <div class="comp-score" id="compExecutionQuality">94</div>
+              <div class="comp-bar-bg"><div class="comp-bar-fill" id="barExecutionQuality" style="width:94%;"></div></div>
+            </div>
+          </div>
+
+          <!-- Grading Reasons (+) and Penalties (-) Audit -->
+          <div style="margin-top:6px;">
+            <div style="font-size:10.5px; font-weight:700; color:#94a3b8; margin-bottom:4px;">REASON & PENALTY AUDIT:</div>
+            <div id="modalGradeReasonsContainer" style="display:flex; flex-direction:column; gap:3px; font-size:11px;"></div>
+          </div>
+        </div>
+
         <div class="reasons-container">
           <div class="reasons-title">
             <span>📋 Detail Alasan Algoritma (Condition Checklist):</span>
@@ -1339,13 +1710,89 @@
   <script>
     let activePatterns = [];
     let currentDirFilter = 'ALL';
+    let currentGradeFilter = 'ALL'; // 'ALL' | 'SSS' | 'SS+' | 'S+' | 'A+'
+    let sortByTierApex = true; // Default: Susun Apex Tier tertinggi di kiri atas
+    let sortByScore = false; // Kept for backwards compatibility
+    let activeTimeframe = 'M5';
+
+    function getTierIcon(tier) {
+      switch ((tier || '').toUpperCase()) {
+        case 'SSS': return '👑';
+        case 'SS': return '💠';
+        case 'S': return '💎';
+        case 'A': return '🎖️';
+        case 'B': return '🎯';
+        case 'C': return '⚪';
+        case 'D': return '⛔';
+        default: return '🔹';
+      }
+    }
+
+    function getTierWeight(tier) {
+      switch ((tier || '').toUpperCase()) {
+        case 'SSS': return 7;
+        case 'SS': return 6;
+        case 'S': return 5;
+        case 'A': return 4;
+        case 'B': return 3;
+        case 'C': return 2;
+        case 'D': return 1;
+        default: return 0;
+      }
+    }
     let previousSignalTimestamps = {};
 
     let currentView = 'radar'; // 'radar' | 'history'
     let currentHistoryFilter = 'ALL'; // 'ALL' | 'CONFIRMED' | 'INVALIDATED' | 'EXPIRED'
+    let currentHistoryTfFilter = 'ALL'; // 'ALL' | 'M1' | 'M5' | 'M15'
+    let currentHistoryGradeFilter = 'ALL'; // 'ALL' | 'SSS' | 'SS' | 'S' | 'A' | 'B'
     let historySignals = [];
     let hasInitializedFromSession = false;
     let toastTimeout = null;
+
+    function setGradeFilter(tier, btn) {
+      currentGradeFilter = tier;
+      document.querySelectorAll('#radarFilterGroup .filter-btn').forEach(b => {
+        if (b.id && b.id.startsWith('btnGradeFilter')) b.classList.remove('active');
+      });
+      if (btn) btn.classList.add('active');
+      lastSignalsSignature = null;
+      renderSignals();
+    }
+
+    function toggleTierSort(btn) {
+      sortByTierApex = !sortByTierApex;
+      if (btn) {
+        btn.classList.toggle('active', sortByTierApex);
+        btn.innerHTML = sortByTierApex ? '👑 Susun Tier Apex (Kiri Atas)' : '⏱ Susun Waktu Terbaru';
+      }
+      lastSignalsSignature = null;
+      renderSignals();
+    }
+
+    function toggleScoreSort(btn) {
+      toggleTierSort(btn);
+    }
+
+    function setHistoryTfFilter(tf, btn) {
+      currentHistoryTfFilter = tf;
+      document.querySelectorAll('#historyFilterGroup .filter-btn').forEach(b => {
+        if (b.id && b.id.startsWith('btnHistTf')) b.classList.remove('active');
+      });
+      if (btn) btn.classList.add('active');
+      lastHistorySignature = null;
+      renderHistory();
+    }
+
+    function setHistoryGradeFilter(g, btn) {
+      currentHistoryGradeFilter = g;
+      document.querySelectorAll('#historyFilterGroup .filter-btn').forEach(b => {
+        if (b.id && b.id.startsWith('btnHistGrade')) b.classList.remove('active');
+      });
+      if (btn) btn.classList.add('active');
+      lastHistorySignature = null;
+      renderHistory();
+    }
 
     function showToast(message) {
       const toast = document.getElementById('sessionToast');
@@ -1413,49 +1860,99 @@
     function renderHistory() {
       const tbody = document.getElementById('historyTableBody');
       const emptyEl = document.getElementById('historyEmpty');
-      const tableWrapper = document.querySelector('.history-table-wrapper table');
       if (!tbody) return;
 
       // Bolt ⚡ Memoization: Skip table rebuilding if history signals haven't changed
-      const histKey = `${currentHistoryFilter}::${historySignals.length}::` + historySignals.map(s => 
-        `${s.event_id}_${s.status}_${s.execution_price}_${s.status_reason || ''}`
+      const histKey = `${currentHistoryFilter}::${currentHistoryTfFilter}::${currentHistoryGradeFilter}::${historySignals.length}::` + historySignals.map(s => 
+        `${s.event_id}_${s.status}_${s.grade || ''}_${s.grade_score || 0}_${s.execution_price}`
       ).join('|');
       if (histKey === lastHistorySignature) return;
       lastHistorySignature = histKey;
 
       // Filter signals
       const filtered = historySignals.filter(sig => {
-        if (currentHistoryFilter === 'ALL') return true;
-        const st = (sig.status || '').toUpperCase();
-        return st === currentHistoryFilter;
+        if (currentHistoryFilter !== 'ALL') {
+          const st = (sig.status || '').toUpperCase();
+          if (st !== currentHistoryFilter) return false;
+        }
+        if (currentHistoryTfFilter !== 'ALL') {
+          const tf = (sig.grade_timeframe || 'M5').toUpperCase();
+          if (tf !== currentHistoryTfFilter) return false;
+        }
+        if (currentHistoryGradeFilter !== 'ALL') {
+          const g = (sig.grade || 'B').toUpperCase();
+          if (g !== currentHistoryGradeFilter) return false;
+        }
+        return true;
       });
 
       // KPI Counters calculation
       const total = historySignals.length;
+      const pendingCnt = historySignals.filter(s => (s.status || '').toUpperCase() === 'PENDING_CONFIRMATION').length;
       const confCnt = historySignals.filter(s => (s.status || '').toUpperCase() === 'CONFIRMED').length;
       const invalCnt = historySignals.filter(s => (s.status || '').toUpperCase() === 'INVALIDATED').length;
       const expCnt = historySignals.filter(s => (s.status || '').toUpperCase() === 'EXPIRED').length;
 
+      const pendingPct = total > 0 ? Math.round((pendingCnt / total) * 100) : 0;
       const confPct = total > 0 ? Math.round((confCnt / total) * 100) : 0;
       const invalPct = total > 0 ? Math.round((invalCnt / total) * 100) : 0;
       const expPct = total > 0 ? Math.round((expCnt / total) * 100) : 0;
 
+      // Grade Distribution Counters
+      const sssCnt = historySignals.filter(s => (s.grade || '').toUpperCase() === 'SSS').length;
+      const ssCnt = historySignals.filter(s => (s.grade || '').toUpperCase() === 'SS').length;
+      const sCnt = historySignals.filter(s => (s.grade || '').toUpperCase() === 'S').length;
+      const aCnt = historySignals.filter(s => (s.grade || '').toUpperCase() === 'A').length;
+      const bCnt = historySignals.filter(s => (s.grade || '').toUpperCase() === 'B').length;
+      const cCnt = historySignals.filter(s => (s.grade || '').toUpperCase() === 'C').length;
+      const dCnt = historySignals.filter(s => (s.grade || '').toUpperCase() === 'D').length;
+
+      const tfM1Cnt = historySignals.filter(s => (s.grade_timeframe || 'M5').toUpperCase() === 'M1').length;
+      const tfM5Cnt = historySignals.filter(s => (s.grade_timeframe || 'M5').toUpperCase() === 'M5').length;
+      const tfM15Cnt = historySignals.filter(s => (s.grade_timeframe || 'M5').toUpperCase() === 'M15').length;
+
       const kpiTot = document.getElementById('kpiTotalSignals');
+      const kpiPending = document.getElementById('kpiPending');
       const kpiConf = document.getElementById('kpiConfirmed');
       const kpiInval = document.getElementById('kpiInvalidated');
       const kpiExp = document.getElementById('kpiExpired');
 
       if (kpiTot) kpiTot.innerText = total;
+      if (kpiPending) kpiPending.innerHTML = `${pendingCnt} <small style="font-size:11px; opacity:0.8;">(${pendingPct}%)</small>`;
       if (kpiConf) kpiConf.innerHTML = `${confCnt} <small style="font-size:11px; opacity:0.8;">(${confPct}%)</small>`;
       if (kpiInval) kpiInval.innerHTML = `${invalCnt} <small style="font-size:11px; opacity:0.8;">(${invalPct}%)</small>`;
       if (kpiExp) kpiExp.innerHTML = `${expCnt} <small style="font-size:11px; opacity:0.8;">(${expPct}%)</small>`;
 
+      const kpiSSS = document.getElementById('kpiGradeSSS');
+      const kpiSS = document.getElementById('kpiGradeSS');
+      const kpiS = document.getElementById('kpiGradeS');
+      const kpiA = document.getElementById('kpiGradeA');
+      const kpiB = document.getElementById('kpiGradeB');
+      const kpiC = document.getElementById('kpiGradeC');
+      const kpiD = document.getElementById('kpiGradeD');
+      if (kpiSSS) kpiSSS.innerHTML = `👑 SSS: ${sssCnt}`;
+      if (kpiSS) kpiSS.innerHTML = `💠 SS: ${ssCnt}`;
+      if (kpiS) kpiS.innerHTML = `💎 S: ${sCnt}`;
+      if (kpiA) kpiA.innerHTML = `🎖️ A: ${aCnt}`;
+      if (kpiB) kpiB.innerHTML = `🎯 B: ${bCnt}`;
+      if (kpiC) kpiC.innerHTML = `⚪ C: ${cCnt}`;
+      if (kpiD) kpiD.innerHTML = `⛔ D: ${dCnt}`;
+
+      const elM1 = document.getElementById('kpiTfM1');
+      const elM5 = document.getElementById('kpiTfM5');
+      const elM15 = document.getElementById('kpiTfM15');
+      if (elM1) elM1.innerText = `M1: ${tfM1Cnt}`;
+      if (elM5) elM5.innerText = `M5: ${tfM5Cnt}`;
+      if (elM15) elM15.innerText = `M15: ${tfM15Cnt}`;
+
       // Update Filter buttons text with count
       const bAll = document.getElementById('btnHistFilterAll');
+      const bPending = document.getElementById('btnHistFilterPending');
       const bConf = document.getElementById('btnHistFilterConf');
       const bInval = document.getElementById('btnHistFilterInval');
       const bExp = document.getElementById('btnHistFilterExp');
       if (bAll) bAll.innerText = `Semua Log (${total})`;
+      if (bPending) bPending.innerText = `⏳ Pending (${pendingCnt})`;
       if (bConf) bConf.innerText = `✔ Confirmed (${confCnt})`;
       if (bInval) bInval.innerText = `✖ Invalidated (${invalCnt})`;
       if (bExp) bExp.innerText = `⏱ Expired (${expCnt})`;
@@ -1480,10 +1977,30 @@
 
         const stVal = (sig.status || 'ACTIVE').toUpperCase();
         let stClass = 'status-active';
-        if (stVal === 'CONFIRMED') stClass = 'status-confirmed';
-        else if (stVal === 'INVALIDATED') stClass = 'status-invalidated';
-        else if (stVal === 'EXPIRED') stClass = 'status-expired';
-        else if (stVal === 'PENDING_CONFIRMATION') stClass = 'status-pending';
+        let stIcon = '🟢';
+        let stLabel = 'ACTIVE';
+        if (stVal === 'CONFIRMED') {
+          stClass = 'status-confirmed';
+          stIcon = '✔';
+          stLabel = 'CONFIRMED';
+        } else if (stVal === 'PENDING_CONFIRMATION') {
+          stClass = 'status-pending';
+          stIcon = '⏳';
+          stLabel = 'PENDING';
+        } else if (stVal === 'INVALIDATED') {
+          stClass = 'status-invalidated';
+          stIcon = '✖';
+          stLabel = 'INVALIDATED';
+        } else if (stVal === 'EXPIRED') {
+          stClass = 'status-expired';
+          stIcon = '⏱';
+          stLabel = 'EXPIRED';
+        }
+
+        const gTier = (sig.grade || 'B').toUpperCase();
+        const tierSlug = gTier.toLowerCase();
+        const gScore = sig.grade_score != null ? Number(sig.grade_score).toFixed(1) : '-';
+        const gTf = sig.grade_timeframe || 'M5';
 
         const trigPx = sig.trigger_price != null ? Number(sig.trigger_price).toFixed(2) : '-';
         const execPx = sig.execution_price != null ? Number(sig.execution_price).toFixed(2) : trigPx;
@@ -1491,19 +2008,23 @@
         const timeDisplay = sig.time_str || (sig.timestamp_ms ? new Date(sig.timestamp_ms).toLocaleTimeString() : '-');
 
         const safeEventId = (sig.event_id || '').replace(/'/g, "\\'");
+        const rowStatusClass = `row-status-${stVal.toLowerCase().replace(/_/g, '-')}`;
+        const rowTierClass = `row-tier-${tierSlug}`;
 
         return `
-          <tr onclick="openSignalDetailModal(${sig.pattern_id}, '${safeEventId}')">
+          <tr class="history-row ${rowStatusClass} ${rowTierClass}" onclick="openSignalDetailModal(${sig.pattern_id}, '${safeEventId}')">
             <td class="history-time">${timeDisplay}</td>
             <td>
               <span class="history-pattern-name">#${String(sig.pattern_id).padStart(2, '0')} ${sig.family_name}</span>
               <span class="modal-category-badge" style="font-size:9px; padding:1px 5px; margin-left:5px;">${sig.pattern_role || 'ENTRY'}</span>
             </td>
+            <td style="text-align:center;"><span class="tf-badge">${gTf}</span></td>
             <td style="text-align:center;">${dirBadge}</td>
+            <td style="text-align:center;"><span class="grade-pill grade-${gTier.toLowerCase()}">${getTierIcon(gTier)} ${gTier} ${gScore}</span></td>
             <td class="history-px">${trigPx}</td>
             <td class="history-px" style="color:#98c379;">${execPx}</td>
             <td class="history-px" style="color:#e06c75;">${invalPx}</td>
-            <td style="text-align:center;"><span class="status-pill ${stClass}">${stVal}</span></td>
+            <td style="text-align:center;"><span class="status-pill ${stClass}">${stIcon} ${stLabel}</span></td>
             <td style="text-align:center;">
               <button class="btn-view-detail" onclick="event.stopPropagation(); openSignalDetailModal(${sig.pattern_id}, '${safeEventId}')">Detail</button>
             </td>
@@ -1562,13 +2083,23 @@
       const statusBadge = document.getElementById('modalStatusBadge');
       const statusReason = document.getElementById('modalStatusReason');
       if (statusBadge) {
-        statusBadge.innerText = stVal;
-        statusBadge.className = 'status-pill ' + (
-          stVal === 'CONFIRMED' ? 'status-confirmed' :
-          stVal === 'PENDING_CONFIRMATION' ? 'status-pending' :
-          stVal === 'INVALIDATED' ? 'status-invalidated' :
-          stVal === 'EXPIRED' ? 'status-expired' : 'status-active'
-        );
+        let stClass = 'status-active';
+        let stLabel = '🟢 ACTIVE';
+        if (stVal === 'CONFIRMED') {
+          stClass = 'status-confirmed';
+          stLabel = '✔ CONFIRMED';
+        } else if (stVal === 'PENDING_CONFIRMATION') {
+          stClass = 'status-pending';
+          stLabel = '⏳ PENDING';
+        } else if (stVal === 'INVALIDATED') {
+          stClass = 'status-invalidated';
+          stLabel = '✖ INVALIDATED';
+        } else if (stVal === 'EXPIRED') {
+          stClass = 'status-expired';
+          stLabel = '⏱ EXPIRED';
+        }
+        statusBadge.className = 'status-pill ' + stClass;
+        statusBadge.innerHTML = stLabel;
       }
       if (statusReason) {
         statusReason.innerText = sig.status_reason || 'Kondisi entry pola terpenuhi';
@@ -1600,6 +2131,7 @@
         `;
       }
 
+      populateModalGrading(sig, pMeta);
       document.getElementById('detailModal').classList.add('open');
     }
 
@@ -1649,16 +2181,47 @@
       const grid = document.getElementById('signalGrid');
       const emptyEl = document.getElementById('radarEmpty');
 
-      // Filter: Only patterns with active BUY or SELL
-      const matched = activePatterns.filter(p => {
+      // Filter: Direction and Tier Grade
+      let matched = activePatterns.filter(p => {
         if (!p.active || p.direction === 'NONE') return false;
-        if (currentDirFilter === 'ALL') return true;
-        return p.direction === currentDirFilter;
+        if (currentDirFilter !== 'ALL' && p.direction !== currentDirFilter) return false;
+        
+        const g = (p.grade || (p.last_signal && p.last_signal.grade) || 'B').toUpperCase();
+        if (currentGradeFilter === 'SSS' && g !== 'SSS') return false;
+        if (currentGradeFilter === 'SS+' && !['SSS', 'SS'].includes(g)) return false;
+        if (currentGradeFilter === 'S+' && !['SSS', 'SS', 'S'].includes(g)) return false;
+        if (currentGradeFilter === 'A+' && !['SSS', 'SS', 'S', 'A'].includes(g)) return false;
+        return true;
       });
 
+      // Apex Priority Layout: Susun Kiri Atas adalah Tier Tertinggi (SSS -> D), Score Descending, Timestamp Descending
+      if (sortByTierApex) {
+        matched.sort((a, b) => {
+          const sigA = a.last_signal || {};
+          const sigB = b.last_signal || {};
+          const tierA = (a.grade || sigA.grade || 'B').toUpperCase();
+          const tierB = (b.grade || sigB.grade || 'B').toUpperCase();
+          const weightDiff = getTierWeight(tierB) - getTierWeight(tierA);
+          if (weightDiff !== 0) return weightDiff;
+
+          const scA = (a.grade_score != null ? a.grade_score : (sigA.grade_score != null ? sigA.grade_score : 0)) || 0;
+          const scB = (b.grade_score != null ? b.grade_score : (sigB.grade_score != null ? sigB.grade_score : 0)) || 0;
+          const scoreDiff = scB - scA;
+          if (Math.abs(scoreDiff) > 0.001) return scoreDiff;
+
+          return (sigB.timestamp_ms || 0) - (sigA.timestamp_ms || 0);
+        });
+      } else {
+        matched.sort((a, b) => {
+          const tsA = (a.last_signal && a.last_signal.timestamp_ms) || 0;
+          const tsB = (b.last_signal && b.last_signal.timestamp_ms) || 0;
+          return tsB - tsA;
+        });
+      }
+
       // Bolt ⚡ Memoization: Skip expensive DOM innerHTML rebuild if signal state is unchanged
-      const sigKey = `${currentDirFilter}::${matched.length}::` + matched.map(p => 
-        `${p.id}_${p.direction}_${p.status}_${p.price_str}_${p.time_ago}_${p.status_reason || ''}_${p.last_signal ? p.last_signal.timestamp_ms : 0}`
+      const sigKey = `${currentDirFilter}::${currentGradeFilter}::${sortByTierApex}::${matched.length}::` + matched.map(p => 
+        `${p.id}_${p.direction}_${p.status}_${p.grade || ''}_${p.grade_score || 0}_${p.price_str}_${p.time_ago}_${p.status_reason || ''}_${p.last_signal ? p.last_signal.timestamp_ms : 0}`
       ).join('|');
       if (sigKey === lastSignalsSignature) return;
       lastSignalsSignature = sigKey;
@@ -1677,7 +2240,8 @@
 
       grid.innerHTML = matched.map(p => {
         const isBuy = p.direction === 'BUY';
-        const cardClass = isBuy ? 'signal-card buy-card' : 'signal-card sell-card';
+        const statusVal = (p.status || (p.last_signal && p.last_signal.status) || 'ACTIVE').toUpperCase();
+        const statusSlug = statusVal.toLowerCase().replace(/_/g, '-');
         const dirLabel = isBuy ? '▲ BUY' : '▼ SELL';
         
         let flashClass = '';
@@ -1689,37 +2253,60 @@
           }
         }
 
-        // Lifecycle status badge determination
-        const statusVal = (p.status || (p.last_signal && p.last_signal.status) || 'ACTIVE').toUpperCase();
+        // Lifecycle status badge determination with distinct icons & colors
         let statusBadgeClass = 'status-active';
         let statusLabel = 'ACTIVE';
+        let statusIcon = '🟢';
         if (statusVal === 'PENDING_CONFIRMATION') {
           statusBadgeClass = 'status-pending';
           statusLabel = 'PENDING';
+          statusIcon = '⏳';
         } else if (statusVal === 'CONFIRMED') {
           statusBadgeClass = 'status-confirmed';
           statusLabel = 'CONFIRMED';
+          statusIcon = '✔';
         } else if (statusVal === 'INVALIDATED') {
           statusBadgeClass = 'status-invalidated';
           statusLabel = 'INVALIDATED';
+          statusIcon = '✖';
         } else if (statusVal === 'EXPIRED') {
           statusBadgeClass = 'status-expired';
           statusLabel = 'EXPIRED';
+          statusIcon = '⏱';
         }
-        const statusBadgeHtml = `<span class="status-pill ${statusBadgeClass}">${statusLabel}</span>`;
+        const statusBadgeHtml = `<span class="status-pill ${statusBadgeClass}">${statusIcon} ${statusLabel}</span>`;
+
+        // Technical Grade & Breakdown
+        const sig = p.last_signal || {};
+        const gTier = (p.grade || sig.grade || 'B').toUpperCase();
+        const tierSlug = gTier.toLowerCase();
+        const cardClass = (isBuy ? 'signal-card buy-card' : 'signal-card sell-card') + ` card-status-${statusSlug} card-tier-${tierSlug}`;
+        const gScore = (p.grade_score != null ? p.grade_score : (sig.grade_score != null ? sig.grade_score : 70.0)).toFixed(1);
+        const gTf = p.grade_timeframe || sig.grade_timeframe || activeTimeframe || 'M5';
+        const bd = sig.grade_breakdown || {};
+        const bdPq = Math.round(bd.pattern_quality || 70);
+        const bdMs = Math.round(bd.market_structure || 70);
+        const bdLq = Math.round(bd.location_quality || 70);
+        const bdCc = Math.round(bd.candle_confirmation || 65);
+        const bdEq = Math.round(bd.execution_quality || 80);
 
         // Snippet text reflecting lifecycle
         let snippetPrefix = '<span class="check">[✓]</span>';
         let snippetText = "Kondisi matematis terpenuhi penuh.";
         if (statusVal === 'INVALIDATED') {
-          snippetPrefix = '<span style="color:var(--accent-red); font-weight:800; margin-right:4px;">[✕]</span>';
+          snippetPrefix = '<span style="color:#f87171; font-weight:800; margin-right:4px;">[✖]</span>';
           snippetText = p.status_reason || (p.last_signal && p.last_signal.status_reason) || "Level invalidasi tertembus.";
         } else if (statusVal === 'CONFIRMED') {
-          snippetPrefix = '<span style="color:#60a5fa; font-weight:800; margin-right:4px;">[★]</span>';
+          snippetPrefix = '<span style="color:#38bdf8; font-weight:800; margin-right:4px;">[✔]</span>';
           snippetText = p.status_reason || (p.last_signal && p.last_signal.status_reason) || "Pergerakan harga terkonfirmasi.";
+        } else if (statusVal === 'PENDING_CONFIRMATION') {
+          snippetPrefix = '<span style="color:#fbbf24; font-weight:800; margin-right:4px;">[⏳]</span>';
+          snippetText = p.status_reason || (p.last_signal && p.last_signal.status_reason) || "Menunggu candle konfirmasi penutupan...";
         } else if (statusVal === 'EXPIRED') {
           snippetPrefix = '<span style="color:#94a3b8; font-weight:800; margin-right:4px;">[⏱]</span>';
           snippetText = p.status_reason || (p.last_signal && p.last_signal.status_reason) || "Batas usia sinyal tercapai.";
+        } else if (sig.grade_reasons && sig.grade_reasons.length > 0) {
+          snippetText = sig.grade_reasons[0];
         } else if (p.last_signal && p.last_signal.reasons && p.last_signal.reasons.length > 0) {
           snippetText = p.last_signal.reasons[0];
         }
@@ -1730,6 +2317,8 @@
               <div class="card-left-meta">
                 <span class="pattern-id-pill">#${String(p.id).padStart(2, '0')}</span>
                 <span class="pattern-cat-pill">${p.category}</span>
+                <span class="tf-badge">${gTf}</span>
+                <span class="grade-pill grade-${gTier.toLowerCase()}">${getTierIcon(gTier)} ${gTier} ${gScore}</span>
                 ${statusBadgeHtml}
               </div>
               <span class="time-badge">${p.time_ago}</span>
@@ -1742,11 +2331,19 @@
               <span class="price-readout">${p.price_str}</span>
             </div>
 
+            <div class="grade-mini-strip">
+              <span title="Pattern Quality">PQ: ${bdPq}</span>
+              <span title="Market Structure">MS: ${bdMs}</span>
+              <span title="Location Quality">LQ: ${bdLq}</span>
+              <span title="Candle Confirmation">CC: ${bdCc}</span>
+              <span title="Execution Quality">EQ: ${bdEq}</span>
+            </div>
+
             <div class="reason-snippet">
               ${snippetPrefix}<span>${snippetText}</span>
             </div>
 
-            <div class="click-hint">Klik untuk detail alasan lengkap &rarr;</div>
+            <div class="click-hint">Klik untuk audit tier grade & alasan lengkap &rarr;</div>
           </div>
         `;
       }).join('');
@@ -1786,13 +2383,23 @@
       const statusBadge = document.getElementById('modalStatusBadge');
       const statusReason = document.getElementById('modalStatusReason');
       if (statusBadge) {
-        statusBadge.innerText = stVal;
-        statusBadge.className = 'status-pill ' + (
-          stVal === 'CONFIRMED' ? 'status-confirmed' :
-          stVal === 'PENDING_CONFIRMATION' ? 'status-pending' :
-          stVal === 'INVALIDATED' ? 'status-invalidated' :
-          stVal === 'EXPIRED' ? 'status-expired' : 'status-active'
-        );
+        let stClass = 'status-active';
+        let stLabel = '🟢 ACTIVE';
+        if (stVal === 'CONFIRMED') {
+          stClass = 'status-confirmed';
+          stLabel = '✔ CONFIRMED';
+        } else if (stVal === 'PENDING_CONFIRMATION') {
+          stClass = 'status-pending';
+          stLabel = '⏳ PENDING';
+        } else if (stVal === 'INVALIDATED') {
+          stClass = 'status-invalidated';
+          stLabel = '✖ INVALIDATED';
+        } else if (stVal === 'EXPIRED') {
+          stClass = 'status-expired';
+          stLabel = '⏱ EXPIRED';
+        }
+        statusBadge.className = 'status-pill ' + stClass;
+        statusBadge.innerHTML = stLabel;
       }
       if (statusReason) {
         statusReason.innerText = sig.status_reason || p.status_reason || 'Kondisi entry pola terpenuhi';
@@ -1824,8 +2431,82 @@
         `;
       }
 
+      populateModalGrading(sig, p);
       document.getElementById('detailModal').classList.add('open');
     }
+
+    function populateModalGrading(sig, p) {
+      const gSection = document.getElementById('modalGradingSection');
+      if (!gSection) return;
+
+      const gTier = (sig.grade || (p && p.grade) || 'B').toUpperCase();
+      const tierSlug = gTier.toLowerCase();
+      gSection.className = `modal-grading-box modal-tier-${tierSlug}`;
+      const gScore = (sig.grade_score != null ? sig.grade_score : (p && p.grade_score != null ? p.grade_score : 70.0));
+      const gTf = sig.grade_timeframe || (p && p.grade_timeframe) || activeTimeframe || 'M5';
+      const gConf = sig.grade_confidence != null ? Math.round(sig.grade_confidence * 100) : 85;
+      const gVer = sig.grade_version || '1.0';
+
+      const badgeEl = document.getElementById('modalGradeBadge');
+      if (badgeEl) {
+        badgeEl.className = `grade-pill grade-${gTier.toLowerCase()}`;
+        badgeEl.innerHTML = `${getTierIcon(gTier)} ${gTier} ${Number(gScore).toFixed(1)}`;
+      }
+
+      const tfEl = document.getElementById('modalGradeTf');
+      if (tfEl) tfEl.innerText = gTf;
+
+      const confEl = document.getElementById('modalGradeConfidence');
+      if (confEl) confEl.innerText = `${gConf}%`;
+
+      const verEl = document.getElementById('modalGradeVer');
+      if (verEl) verEl.innerText = gVer;
+
+      const cappedNotice = document.getElementById('modalCappedNotice');
+      if (cappedNotice) {
+        if (sig.capped_reason) {
+          cappedNotice.style.display = 'block';
+          cappedNotice.innerHTML = `⚠️ <strong>Tier Capped:</strong> ${sig.capped_reason}`;
+        } else {
+          cappedNotice.style.display = 'none';
+        }
+      }
+
+      const bd = sig.grade_breakdown || {};
+      const bdPq = Math.round(bd.pattern_quality != null ? bd.pattern_quality : 70);
+      const bdMs = Math.round(bd.market_structure != null ? bd.market_structure : 70);
+      const bdLq = Math.round(bd.location_quality != null ? bd.location_quality : 70);
+      const bdCc = Math.round(bd.candle_confirmation != null ? bd.candle_confirmation : 65);
+      const bdEq = Math.round(bd.execution_quality != null ? bd.execution_quality : 80);
+
+      const setComp = (scoreId, barId, val) => {
+        const scEl = document.getElementById(scoreId);
+        const bEl = document.getElementById(barId);
+        if (scEl) scEl.innerText = val;
+        if (bEl) bEl.style.width = `${Math.min(100, Math.max(0, val))}%`;
+      };
+      setComp('compPatternQuality', 'barPatternQuality', bdPq);
+      setComp('compMarketStructure', 'barMarketStructure', bdMs);
+      setComp('compLocationQuality', 'barLocationQuality', bdLq);
+      setComp('compCandleConfirm', 'barCandleConfirm', bdCc);
+      setComp('compExecutionQuality', 'barExecutionQuality', bdEq);
+
+      const reasonsContainer = document.getElementById('modalGradeReasonsContainer');
+      if (reasonsContainer) {
+        let items = [];
+        if (sig.grade_reasons && sig.grade_reasons.length > 0) {
+          items.push(...sig.grade_reasons.map(r => `<div style="color:#4ade80;"><strong>+</strong> ${r}</div>`));
+        }
+        if (sig.grade_penalties && sig.grade_penalties.length > 0) {
+          items.push(...sig.grade_penalties.map(pen => `<div style="color:#f87171;"><strong>-</strong> ${pen}</div>`));
+        }
+        if (items.length === 0) {
+          items.push(`<div style="color:#94a3b8;">Evaluasi teknikal standar untuk sinyal ini.</div>`);
+        }
+        reasonsContainer.innerHTML = items.join('');
+      }
+    }
+
 
     function closeModal(event) {
       if (event.target.id === 'detailModal') closeModalDirect();
@@ -1930,6 +2611,7 @@
             if (prefs.history_filter && prefs.history_filter !== currentHistoryFilter) {
               const btn = document.getElementById(
                 prefs.history_filter === 'CONFIRMED' ? 'btnHistFilterConf' :
+                prefs.history_filter === 'PENDING_CONFIRMATION' ? 'btnHistFilterPending' :
                 prefs.history_filter === 'INVALIDATED' ? 'btnHistFilterInval' :
                 prefs.history_filter === 'EXPIRED' ? 'btnHistFilterExp' : 'btnHistFilterAll'
               );
