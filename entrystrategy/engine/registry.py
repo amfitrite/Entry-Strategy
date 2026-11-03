@@ -56,7 +56,7 @@ class PatternRegistry:
             p.InvertedVReversalPattern(),
             p.StaircasePattern(),
             p.CandleSequencePattern(),
-            p.HybridTickCandlePattern(),
+            p.CandleRejectionConfluencePattern(),
         ]
         for inst in instances:
             self._patterns[inst.pattern_id] = inst
