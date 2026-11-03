@@ -125,13 +125,13 @@ class MicroSwingBreakPattern(BasePattern):
         if c0.is_bullish and c0.close > swing_high + 0.15:
             return _signal(
                 self, buffer, c0, SignalDirection.BUY, swing_high, swing_low,
-                [f"Close bullish {c0.close:.2f} menembus swing high {swing_high:.2f}", "Break dikonfirmasi candle close, bukan penetrasi tick/wick"],
+                [f"Close bullish {c0.close:.2f} menembus swing high {swing_high:.2f}", "Break dikonfirmasi candle close, bukan penetrasi wick intrabar"],
                 {"swing_high": round(swing_high, 2), "swing_low": round(swing_low, 2), "penetration": round(c0.close - swing_high, 2)},
             )
         if c0.is_bearish and c0.close < swing_low - 0.15:
             return _signal(
                 self, buffer, c0, SignalDirection.SELL, swing_low, swing_high,
-                [f"Close bearish {c0.close:.2f} menembus swing low {swing_low:.2f}", "Break dikonfirmasi candle close, bukan penetrasi tick/wick"],
+                [f"Close bearish {c0.close:.2f} menembus swing low {swing_low:.2f}", "Break dikonfirmasi candle close, bukan penetrasi wick intrabar"],
                 {"swing_high": round(swing_high, 2), "swing_low": round(swing_low, 2), "penetration": round(swing_low - c0.close, 2)},
             )
         return None
