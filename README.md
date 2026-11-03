@@ -99,8 +99,10 @@ python run_app.py
 
 ## 🧪 Pengujian & Unit Test
 
-Untuk menjalankan seluruh rangkaian automated unit test:
+Untuk menjalankan seluruh rangkaian automated unit test (72 test suite: verifikasi 40 pola, akurasi rumus, proteksi data kosong, siklus hidup sinyal, pemisahan buffer M1/M5, simetri BUY/SELL, dan socket TCP port 5558):
 ```bash
 python -m pytest tests -v
 ```
-Seluruh 7 skenario pengujian (verifikasi 40 keluarga strategi, akurasi rumus, proteksi data kosong, dan socket TCP port 5558) diuji secara otomatis dan terverifikasi 100% lulus.
+
+Laporan audit konseptual mendalam dan verifikasi teknis arsitektur 40 strategi dapat dibaca di:
+👉 [`docs/AUDIT_KONSEPTUAL_40_STRATEGI.md`](docs/AUDIT_KONSEPTUAL_40_STRATEGI.md)
