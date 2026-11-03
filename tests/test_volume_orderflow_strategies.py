@@ -232,6 +232,9 @@ def test_all_16_volume_evaluators_grade_cleanly_on_all_timeframes(tf):
     buf = MarketBuffer(active_timeframe=tf)
     _populate_volume_buffer(buf, tf, count=25, base_volume=120, base_price=2750.0)
 
+    recent = buf.get_recent_candles(1, tf)
+    sig_ts = int(recent[0].timestamp.timestamp() * 1000) + 1000 if recent else int(time.time() * 1000)
+
     for pid in range(41, 57):
         sig = EntrySignal(
             pattern_id=pid,
@@ -239,7 +242,7 @@ def test_all_16_volume_evaluators_grade_cleanly_on_all_timeframes(tf):
             direction=SignalDirection.BUY if pid % 2 == 1 else SignalDirection.SELL,
             reference_price=2750.0,
             trigger_price=2753.0 if pid % 2 == 1 else 2747.0,
-            timestamp_ms=int(time.time() * 1000),
+            timestamp_ms=sig_ts,
             invalidation_price=2746.0 if pid % 2 == 1 else 2754.0,
             metrics={"rvol": 2.5, "zscore": 2.6, "stacked_levels": 3},
         )

@@ -7,6 +7,8 @@ from entrystrategy.engine.grading.models import (
     GradingResult,
     EvidenceCluster,
     EvidenceItem,
+    DataStatus,
+    DataSufficiencyStatus,
 )
 from entrystrategy.engine.grading.base import BaseStrategyEvaluator
 from entrystrategy.engine.grading.evaluators import (
@@ -21,6 +23,10 @@ from entrystrategy.engine.grading.thresholds import (
     calculate_atr,
     get_timeframe_profile,
 )
+from entrystrategy.engine.grading.validation import (
+    TierPerformanceMetrics,
+    HistoricalTierValidator,
+)
 
 __all__ = [
     "GradeTier",
@@ -30,6 +36,8 @@ __all__ = [
     "GradingResult",
     "EvidenceCluster",
     "EvidenceItem",
+    "DataStatus",
+    "DataSufficiencyStatus",
     "BaseStrategyEvaluator",
     "get_evaluator_for_pattern",
     "EVALUATOR_MAPPING",
@@ -39,4 +47,6 @@ __all__ = [
     "TIMEFRAME_PROFILES",
     "calculate_atr",
     "get_timeframe_profile",
+    "TierPerformanceMetrics",
+    "HistoricalTierValidator",
 ]

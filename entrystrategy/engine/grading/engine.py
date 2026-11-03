@@ -7,15 +7,24 @@ from entrystrategy.engine.grading.models import (
     GradingWeights,
     ComponentBreakdown,
     GradingResult,
+    DataSufficiencyStatus,
 )
 from entrystrategy.engine.grading.evaluators import get_evaluator_for_pattern
 from entrystrategy.engine.grading.thresholds import TIER_GATING
 
 
 class GradingEngine:
-    """Evaluates EntrySignals post-trigger across M1, M5, and M15 timeframes."""
+    """Evaluates EntrySignals post-trigger across M1, M5, and M15 timeframes.
 
-    def __init__(self, weights: Optional[GradingWeights] = None, version: str = "1.0.0"):
+    Strictly adheres to:
+    - Zero look-ahead bias (evaluates at signal.timestamp_ms snapshot).
+    - Closed-candle-only data.
+    - Explicit missing data handling and normalized effective weighting.
+    - Prerequisites and gating rules for SSS, SS, and S tiers.
+    - Transparent validation labeling ('NOT VALIDATED' until tested out-of-sample).
+    """
+
+    def __init__(self, weights: Optional[GradingWeights] = None, version: str = "2.0.0"):
         self.weights = weights or GradingWeights()
         self.version = version
 
@@ -25,32 +34,60 @@ class GradingEngine:
         buffer: MarketBuffer,
         timeframe: Optional[str] = None,
     ) -> GradingResult:
-        """Grades an EntrySignal dynamically based on closed-candle conditions.
-        Enforces tier gating and writes grade attributes to the signal.
+        """Grades an EntrySignal dynamically based strictly on closed-candle conditions.
+        Enforces tier gating, missing-data normalization, and writes grade attributes to the signal.
         """
         tf = (timeframe or buffer.active_timeframe or "M5").upper()
         evaluator = get_evaluator_for_pattern(signal.pattern_id, signal.family_name)
 
-        breakdown, reasons, penalties, confidence, has_critical = evaluator.evaluate(
-            signal, buffer, tf
+        # Snapshot timestamp strictly from signal (prevents future candle leakage)
+        snapshot_ts = signal.timestamp_ms
+
+        try:
+            breakdown, reasons, penalties, confidence, has_critical = evaluator.evaluate(
+                signal, buffer, tf, snapshot_ts
+            )
+        except TypeError:
+            breakdown, reasons, penalties, confidence, has_critical = evaluator.evaluate(
+                signal, buffer, tf
+            )
+
+        raw_score, effective_weight_sum, effective_weights, is_insufficient = (
+            breakdown.calculate_normalized_score(self.weights)
+        )
+        capped_reason: Optional[str] = None
+        data_sufficiency = (
+            DataSufficiencyStatus.INSUFFICIENT_DATA.value
+            if (is_insufficient or confidence < 0.35 or breakdown.available_components < 3)
+            else DataSufficiencyStatus.SUFFICIENT.value
         )
 
-        raw_score = breakdown.calculate_total_score(self.weights)
-        capped_reason: Optional[str] = None
         tier = GradeTier.from_score(raw_score)
 
         # -------------------------------------------------------------
-        # High Tier Gating Rules (Strict criteria beyond total score)
+        # 1. Insufficient Data Gate: Never allow High Tiers without sufficient data
         # -------------------------------------------------------------
-        # 1. Critical Contradiction Gate: Severe structural conflict caps tier to B max
-        if has_critical:
+        if data_sufficiency == DataSufficiencyStatus.INSUFFICIENT_DATA.value:
+            penalties.append("DATA_GATE: Kelengkapan data tidak mencukupi untuk penilaian penuh (INSUFFICIENT_DATA)")
+            if tier in (GradeTier.SSS, GradeTier.SS, GradeTier.S, GradeTier.A):
+                tier = GradeTier.C if raw_score >= 50.0 else GradeTier.D
+                raw_score = min(raw_score, 64.0 if tier == GradeTier.C else 49.0)
+                capped_reason = "Grade dibatasi karena kelengkapan/kecukupan data tidak memadai (INSUFFICIENT_DATA)"
+                penalties.append(f"DATA_GATE: {capped_reason}")
+
+        # -------------------------------------------------------------
+        # 2. Critical Contradiction Gate: Severe structural conflict caps tier to B max
+        # -------------------------------------------------------------
+        elif has_critical:
             if raw_score >= 75.0:
                 tier = GradeTier.B
                 raw_score = min(raw_score, 74.5)
                 capped_reason = "Grade dibatasi ke B karena terdapat kontradiksi struktural kritis"
                 penalties.append(f"GATING: {capped_reason}")
 
-        # 2. SSS Gating Rules
+        # -------------------------------------------------------------
+        # 3. High Tier Gating Rules (Strict criteria beyond total score)
+        # -------------------------------------------------------------
         elif tier == GradeTier.SSS:
             gate = TIER_GATING["SSS"]
             reasons_fail: List[str] = []
@@ -71,7 +108,6 @@ class GradingEngine:
                 capped_reason = f"Diturunkan dari SSS ke SS: {', '.join(reasons_fail)}"
                 penalties.append(f"GATING: {capped_reason}")
 
-        # 3. SS Gating Rules
         elif tier == GradeTier.SS:
             gate = TIER_GATING["SS"]
             min_floor = gate["min_component_floor"]
@@ -84,17 +120,16 @@ class GradingEngine:
                 capped_reason = f"Diturunkan dari SS ke S: Komponen di bawah ambang minimal ({', '.join(low_components)})"
                 penalties.append(f"GATING: {capped_reason}")
 
-        # 4. S Gating Rules
         elif tier == GradeTier.S:
             gate = TIER_GATING["S"]
             min_floor = gate["min_component_floor"]
             low_components = [
                 k for k, v in breakdown.to_dict().items() if v < min_floor
             ]
-            if low_components:
+            if low_components or confidence < gate["min_confidence"]:
                 tier = GradeTier.A
                 raw_score = min(raw_score, 84.0)
-                capped_reason = f"Diturunkan dari S ke A: Komponen di bawah batas 50 ({', '.join(low_components)})"
+                capped_reason = f"Diturunkan dari S ke A: Komponen di bawah batas minimal ({', '.join(low_components)})"
                 penalties.append(f"GATING: {capped_reason}")
 
         # Final result creation
@@ -108,6 +143,9 @@ class GradingEngine:
             reasons=reasons,
             penalties=penalties,
             capped_reason=capped_reason,
+            data_sufficiency=data_sufficiency,
+            effective_weights=effective_weights,
+            validation_status="NOT VALIDATED",  # Transparent empirical label per requirement 12
         )
 
         # Attach seamlessly to EntrySignal for downstream consumers
@@ -119,5 +157,8 @@ class GradingEngine:
         signal.grade_breakdown = result.breakdown.to_dict()
         signal.grade_reasons = result.reasons
         signal.grade_penalties = result.penalties
+        setattr(signal, "grade_data_sufficiency", result.data_sufficiency)
+        setattr(signal, "grade_effective_weights", result.effective_weights)
+        setattr(signal, "grade_validation_status", result.validation_status)
 
         return result

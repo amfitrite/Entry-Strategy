@@ -1,7 +1,7 @@
 """Data models and value types for Strategy Tier Grading Engine."""
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Tuple
 
 
 class GradeTier(str, Enum):
@@ -32,6 +32,20 @@ class GradeTier(str, Enum):
             return cls.C
         else:
             return cls.D
+
+
+class DataStatus(str, Enum):
+    """Classification of data source transparency and availability."""
+    OBSERVED = "OBSERVED"        # Dihitung langsung dari data candle/tick nyata
+    ESTIMATED = "ESTIMATED"      # Dihitung melalui proxy / dekomposisi intra-bar
+    UNAVAILABLE = "UNAVAILABLE"  # Data tidak tersedia (misal MTF context tanpa bar closed)
+    INSUFFICIENT = "INSUFFICIENT" # Data tersedia tapi sampel di bawah ambang minimal
+
+
+class DataSufficiencyStatus(str, Enum):
+    """Overall data sufficiency status for the grading assessment."""
+    SUFFICIENT = "SUFFICIENT"
+    INSUFFICIENT_DATA = "INSUFFICIENT_DATA"
 
 
 class GradingComponent(str, Enum):
@@ -81,6 +95,9 @@ class ComponentBreakdown:
     location_quality: float = 0.0
     candle_confirmation: float = 0.0
     execution_quality: float = 0.0
+    statuses: Dict[str, str] = field(default_factory=dict)
+    effective_weights: Dict[str, float] = field(default_factory=dict)
+    available_components: int = 5
 
     def __post_init__(self):
         self.pattern_quality = round(max(0.0, min(100.0, float(self.pattern_quality))), 2)
@@ -89,16 +106,70 @@ class ComponentBreakdown:
         self.candle_confirmation = round(max(0.0, min(100.0, float(self.candle_confirmation))), 2)
         self.execution_quality = round(max(0.0, min(100.0, float(self.execution_quality))), 2)
 
-    def calculate_total_score(self, weights: GradingWeights) -> float:
-        """Calculates weighted total score from component values."""
-        raw = (
-            self.pattern_quality * weights.pattern_quality
-            + self.market_structure * weights.market_structure
-            + self.location_quality * weights.location_quality
-            + self.candle_confirmation * weights.candle_confirmation
-            + self.execution_quality * weights.execution_quality
+        # Default statuses to OBSERVED if not provided
+        if not self.statuses:
+            self.statuses = {
+                "pattern_quality": DataStatus.OBSERVED.value,
+                "market_structure": DataStatus.OBSERVED.value,
+                "location_quality": DataStatus.OBSERVED.value,
+                "candle_confirmation": DataStatus.OBSERVED.value,
+                "execution_quality": DataStatus.OBSERVED.value,
+            }
+
+    def calculate_normalized_score(
+        self, weights: GradingWeights
+    ) -> Tuple[float, float, Dict[str, float], bool]:
+        """Calculates normalized total score over available components without artificial bias.
+
+        Returns:
+            normalized_score: Weighted average of available components (0-100)
+            effective_weight_sum: Sum of weights of available components
+            effective_weights: Normalized weight dict for transparency
+            is_insufficient: True if critical data is missing or available weight < 0.40
+        """
+        weights_dict = weights.to_dict()
+        scores_dict = self.to_dict()
+
+        available_weights: Dict[str, float] = {}
+        effective_sum = 0.0
+
+        for comp, status in self.statuses.items():
+            if status not in (DataStatus.UNAVAILABLE.value, DataStatus.INSUFFICIENT.value):
+                w = weights_dict.get(comp, 0.0)
+                available_weights[comp] = w
+                effective_sum += w
+
+        # Insufficient check: less than 40% of component weight available,
+        # or Pattern Quality is missing
+        is_insufficient = (
+            effective_sum < 0.40
+            or self.statuses.get("pattern_quality") in (DataStatus.UNAVAILABLE.value, DataStatus.INSUFFICIENT.value)
         )
-        return round(max(0.0, min(100.0, raw)), 2)
+
+        if effective_sum <= 0.0:
+            return 0.0, 0.0, {k: 0.0 for k in weights_dict}, True
+
+        effective_weights: Dict[str, float] = {}
+        weighted_sum = 0.0
+        for comp, w in weights_dict.items():
+            if comp in available_weights:
+                eff_w = round(w / effective_sum, 4)
+                effective_weights[comp] = eff_w
+                weighted_sum += scores_dict[comp] * eff_w
+            else:
+                effective_weights[comp] = 0.0
+
+        self.effective_weights = effective_weights
+        self.available_components = len(available_weights)
+
+        normalized_score = round(max(0.0, min(100.0, weighted_sum)), 2)
+        return normalized_score, effective_sum, effective_weights, is_insufficient
+
+    def calculate_total_score(self, weights: GradingWeights) -> float:
+        """Calculates normalized total score (backward-compatible method)."""
+        score, _, eff_weights, _ = self.calculate_normalized_score(weights)
+        self.effective_weights = eff_weights
+        return score
 
     def to_dict(self) -> Dict[str, float]:
         return {
@@ -142,6 +213,9 @@ class GradingResult:
     reasons: List[str] = field(default_factory=list)
     penalties: List[str] = field(default_factory=list)
     capped_reason: Optional[str] = None
+    data_sufficiency: str = "SUFFICIENT"
+    effective_weights: Dict[str, float] = field(default_factory=dict)
+    validation_status: str = "NOT VALIDATED"
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -154,4 +228,7 @@ class GradingResult:
             "grade_reasons": self.reasons,
             "grade_penalties": self.penalties,
             "capped_reason": self.capped_reason,
+            "data_sufficiency": self.data_sufficiency,
+            "effective_weights": self.effective_weights,
+            "validation_status": self.validation_status,
         }
